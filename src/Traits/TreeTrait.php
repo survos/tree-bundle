@@ -16,6 +16,7 @@ trait TreeTrait
     #[Gedmo\TreeParent]
     #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
     #[ORM\JoinColumn(referencedColumnName: 'id', onDelete: 'CASCADE')]
+    #[Groups(['Default', 'minimum', 'browse', 'jstree'])]
     public $parent;
 
     #[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]

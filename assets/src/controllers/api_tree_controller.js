@@ -19,6 +19,7 @@ export default class extends Controller {
         this.pendingCreates = new Set();
         this.pendingParentByNodeId = new Map();
         this.pendingDraftNameByNodeId = new Map();
+        this.nodeIriById = new Map();
         this.boundTreeHandlers = [];
         this.notify(`api_tree: ${this.baseUrl}`);
         console.info('[api_tree] connect', {
@@ -143,6 +144,14 @@ export default class extends Controller {
             return [];
         }
         this.firstLoadedNode = members[0] || null;
+        this.nodeIriById.clear();
+        for (const node of members) {
+            const id = this.nodeId(node);
+            const iri = node?.['@id'] || null;
+            if (id && iri) {
+                this.nodeIriById.set(String(id), String(iri));
+            }
+        }
         this.notify(`api_tree: loaded ${members.length} nodes`);
         return members;
     }
@@ -317,6 +326,7 @@ export default class extends Controller {
         console.debug('[api_tree] create_node.jstree', detail);
         if (detail.node?.id && !this.pendingParentByNodeId.has(String(detail.node.id))) {
             this.pendingParentByNodeId.set(String(detail.node.id), String(detail.parent || '#'));
+            this.pendingDraftNameByNodeId.set(String(detail.node.id), String(detail.node.text || '').trim());
         }
         this.dispatchNode(detail.node || null, 'create_node', detail);
         this.notify('api_tree: new node created locally, waiting for name');
@@ -344,20 +354,6 @@ export default class extends Controller {
             }
 
             if (name === oldName && name !== pendingName) {
-                return;
-            }
-
-            if (name === oldName && name === pendingName && !name) {
-                const tree = getTree(this.ajaxTarget);
-                if (tree) {
-                    const tree = getTree(this.ajaxTarget);
-                    if (tree) {
-                        tree.delete_node(detail.node);
-                    }
-                }
-                this.pendingParentByNodeId.delete(String(detail.node.id));
-                this.pendingDraftNameByNodeId.delete(String(detail.node.id));
-                this.notify('api_tree: create cancelled');
                 return;
             }
 
@@ -417,7 +413,14 @@ export default class extends Controller {
         try {
             const parentId = this.pendingParentByNodeId.get(String(node.id)) || detail.parent || node.parent || '#';
             const parentIri = this.resolveParentIri(parentId);
-            console.debug('[api_tree] create payload parent', { nodeId: node.id, parentId, parentIri });
+            console.info('[api_tree] create parent resolution', {
+                nodeId: node.id,
+                nodeText: node.text,
+                detailParent: detail.parent,
+                nodeParent: node.parent,
+                chosenParentId: parentId,
+                parentIri,
+            });
             const payload = this.buildCreatePayload(node, parentIri);
             if (!payload) {
                 const tree = getTree(this.ajaxTarget);
@@ -429,6 +432,7 @@ export default class extends Controller {
                 return;
             }
             const created = await this.request(this.baseUrl, 'POST', payload);
+            console.info('[api_tree] create response', created);
 
             if (created && typeof created === 'object') {
                 node.data = created;
@@ -436,11 +440,15 @@ export default class extends Controller {
                     node.data['@id'] = created['@id'];
                 }
                 const canonicalId = this.nodeId(created);
+                const createdIri = created?.['@id'] || null;
                 const tree = getTree(this.ajaxTarget);
                 if (tree && canonicalId && canonicalId !== node.id) {
                     this.pendingParentByNodeId.delete(String(node.id));
                     this.pendingParentByNodeId.set(String(canonicalId), parentId);
                     tree.set_id(node, canonicalId);
+                }
+                if (canonicalId && createdIri) {
+                    this.nodeIriById.set(String(canonicalId), String(createdIri));
                 }
             }
 
@@ -540,9 +548,37 @@ export default class extends Controller {
             return;
         }
 
-        const parentIri = this.resolveParentIri(detail.parent);
+        const parentId = this.extractMoveParentId(detail);
+        const parentIri = this.resolveParentIri(parentId);
+        console.info('[api_tree] move parent resolution', {
+            nodeId: node.id,
+            detailParent: detail.parent,
+            nodeParent: node.parent,
+            chosenParentId: parentId,
+            parentIri,
+        });
         await this.request(iri, 'PATCH', { parent: parentIri });
         this.notify('api_tree: node moved');
+    }
+
+    extractMoveParentId(detail) {
+        if (detail && detail.parent !== undefined && detail.parent !== null && detail.parent !== '') {
+            return detail.parent;
+        }
+
+        if (detail?.node?.parent !== undefined && detail.node.parent !== null && detail.node.parent !== '') {
+            return detail.node.parent;
+        }
+
+        const tree = getTree(this.ajaxTarget);
+        if (tree && detail?.node?.id) {
+            const liveNode = tree.get_node(detail.node.id);
+            if (liveNode?.parent !== undefined && liveNode.parent !== null && liveNode.parent !== '') {
+                return liveNode.parent;
+            }
+        }
+
+        return '#';
     }
 
     async persistDelete(detail) {
@@ -569,6 +605,10 @@ export default class extends Controller {
             return node.data['@id'];
         }
 
+        if (this.nodeIriById.has(String(node.id))) {
+            return this.nodeIriById.get(String(node.id));
+        }
+
         const tree = getTree(this.ajaxTarget);
         if (!tree) {
             return null;
@@ -584,6 +624,7 @@ export default class extends Controller {
 
     resolveParentIri(parentId) {
         if (!parentId || parentId === '#') {
+            console.warn('[api_tree] resolveParentIri root/null parent', { parentId });
             return null;
         }
 
@@ -594,10 +635,28 @@ export default class extends Controller {
 
         const parentNode = tree.get_node(parentId);
         if (parentNode?.data?.['@id']) {
+            console.debug('[api_tree] parent @id from node data', {
+                parentId,
+                iri: parentNode.data['@id'],
+                parentNode,
+            });
             return parentNode.data['@id'];
         }
 
-        return this.inferItemIri(parentId);
+        if (this.nodeIriById.has(String(parentId))) {
+            const iri = this.nodeIriById.get(String(parentId));
+            console.debug('[api_tree] parent @id from lookup map', { parentId, iri });
+            return iri;
+        }
+
+        const inferred = this.inferItemIri(parentId);
+        console.warn('[api_tree] parent @id missing, using inferred IRI', {
+            parentId,
+            inferred,
+            parentNode,
+        });
+
+        return inferred;
     }
 
     inferItemIri(nodeId) {
@@ -605,12 +664,25 @@ export default class extends Controller {
             return null;
         }
 
-        const base = this.collectionBaseUrl();
+        const base = this.itemBaseUrl();
         if (!base) {
             return null;
         }
 
         return `${base}/${encodeURIComponent(String(nodeId))}`;
+    }
+
+    itemBaseUrl() {
+        const first = this.firstLoadedNode || {};
+        if (first['@id']) {
+            const iri = String(first['@id']);
+            const idx = iri.lastIndexOf('/');
+            if (idx > 0) {
+                return iri.slice(0, idx);
+            }
+        }
+
+        return this.collectionBaseUrl();
     }
 
     collectionBaseUrl() {
@@ -627,27 +699,7 @@ export default class extends Controller {
         const name = node.text || 'New node';
 
         if ('code' in first) {
-            const suggested = (this.slug(name).replace(/-/g, '').slice(0, 10) || `n${Date.now().toString().slice(-8)}`).toUpperCase();
-            const entered = window.prompt('Enter topic code (max 10 chars)', suggested);
-            if (!entered) {
-                this.notify('api_tree: create cancelled');
-                return null;
-            }
-            const code = entered.trim().slice(0, 10);
-            if (!code) {
-                this.notify('api_tree: code is required');
-                return null;
-            }
-
-            const tree = getTree(this.ajaxTarget);
-            if (tree) {
-                const allNodes = tree.get_json('#', { flat: true }) || [];
-                const duplicate = allNodes.some((n) => String(n.id) === code);
-                if (duplicate) {
-                    this.notify(`api_tree: code "${code}" already exists`);
-                    return null;
-                }
-            }
+            const code = this.nextUniqueCode(name);
 
             return {
                 code,
@@ -678,7 +730,26 @@ export default class extends Controller {
             .replace(/^-+|-+$/g, '');
     }
 
+    nextUniqueCode(name) {
+        const tree = getTree(this.ajaxTarget);
+        const allIds = new Set(((tree?.get_json('#', { flat: true }) || []).map((n) => String(n.id).toUpperCase())));
+
+        const baseRaw = (this.slug(name).replace(/-/g, '').slice(0, 10) || 'NODE').toUpperCase();
+        let candidate = baseRaw;
+        let i = 1;
+
+        while (allIds.has(candidate)) {
+            const suffix = String(i);
+            const head = baseRaw.slice(0, Math.max(1, 10 - suffix.length));
+            candidate = `${head}${suffix}`;
+            i += 1;
+        }
+
+        return candidate;
+    }
+
     async request(url, method, body = null) {
+        console.info('[api_tree] API request', { method, url, body });
         const options = {
             method,
             headers: {
@@ -692,8 +763,15 @@ export default class extends Controller {
         }
 
         const response = await fetch(url, options);
+        console.info('[api_tree] API response meta', {
+            method,
+            url,
+            status: response.status,
+            ok: response.ok,
+        });
         if (!response.ok) {
             const text = await response.text();
+            console.error('[api_tree] API error response body', { method, url, text });
             throw new Error(`${response.status} ${response.statusText} ${text}`.trim());
         }
 
