@@ -2,6 +2,7 @@ import $ from 'jquery';
 import {
     createTree,
     getTree,
+    getJQuery,
     hasTree,
     callTree,
     destroyTree,
@@ -16,4 +17,4 @@ if (!window.$) {
     window.$ = $;
 }
 
-export { createTree, getTree, hasTree, callTree, destroyTree, configureDefaults, version };
+export { createTree, getTree, getJQuery, hasTree, callTree, destroyTree, configureDefaults, version };

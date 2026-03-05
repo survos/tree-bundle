@@ -1,7 +1,8 @@
 {# templates/components/api_tree.html.twig #}
 <div {{ stimulus_controller(this.stimulusController, {
     api_call: apiUrl|default(api_route(this.class)),
-    filter: this.filter
+    filter: this.filter,
+    editable: this.editable
 }) }}>
     <div class="mb-2 d-flex gap-2">
         <input
@@ -15,6 +16,18 @@
                 class="btn btn-outline-secondary"
                 {{ stimulus_action(this.stimulusController, 'clearSearch') }}
         >Clear</button>
+        {% if this.editable %}
+            <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    {{ stimulus_action(this.stimulusController, 'addNode') }}
+            >Add</button>
+            <button
+                    type="button"
+                    class="btn btn-outline-danger"
+                    {{ stimulus_action(this.stimulusController, 'deleteSelected') }}
+            >Delete</button>
+        {% endif %}
     </div>
 
     <div class="small text-muted mb-2" {{ stimulus_target(this.stimulusController, 'message') }}>Loading tree...</div>

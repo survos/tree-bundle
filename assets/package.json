@@ -2,7 +2,7 @@
   "name": "@survos/tree-bundle",
   "description": "integrate php and javascript helpers for JSTree.com",
   "license": "MIT",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "symfony": {
     "controllers": {
       "tree": {
@@ -23,16 +23,16 @@
   "importmap": {
     "@hotwired/stimulus": "^3.2.2",
     "jquery": "^4.0.0",
-    "@tacman1123/jstree-esm": "^4.0.0"
+    "@tacman1123/jstree-esm": "^4.1.0"
   },
   "peerDependencies": {
     "@hotwired/stimulus": "^3.2.2",
     "jquery": "^4.0.0",
-    "@tacman1123/jstree-esm": "^4.0.0"
+    "@tacman1123/jstree-esm": "^4.1.0"
   },
   "devDependencies": {
     "@hotwired/stimulus": "^3.2.2",
     "jquery": "^4.0.0",
-    "@tacman1123/jstree-esm": "^4.0.0"
+    "@tacman1123/jstree-esm": "^4.1.0"
   }
 }

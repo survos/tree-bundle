@@ -78,7 +78,7 @@ trait TreeTrait
     #[Groups(['minimum', 'search', 'jstree'])]
     public function getParentId()
     {
-        return $this?->getParent()?->getId();
+        return $this?->getParent()?->id;
     }
 
     public function getLevel()

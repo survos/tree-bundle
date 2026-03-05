@@ -30,6 +30,8 @@ class ApiTreeComponent
 
     public array $filter = [];
 
+    public bool $editable = true;
+
     // @todo: add jstwig
 //    private function getTwigBlocks(): iterable
 //    {
