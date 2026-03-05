@@ -127,6 +127,7 @@ export default class extends Controller {
                 url.searchParams.set(k, String(v));
             }
         });
+        console.info('[api_tree] fetch URL', url.toString());
 
         const response = await fetch(url.toString(), {
             headers: {
@@ -701,26 +702,44 @@ export default class extends Controller {
         if ('code' in first) {
             const code = this.nextUniqueCode(name);
 
-            return {
+            const payload = {
                 code,
                 name,
                 description: name,
                 parent: parentIri,
             };
+
+            if (this.filterObj?.tenantId) {
+                payload.tenantId = String(this.filterObj.tenantId);
+            }
+
+            return payload;
         }
 
         if ('isDir' in first) {
-            return {
+            const payload = {
                 name,
                 isDir: true,
                 parent: parentIri,
             };
+
+            if (this.filterObj?.tenantId) {
+                payload.tenantId = String(this.filterObj.tenantId);
+            }
+
+            return payload;
         }
 
-        return {
+        const payload = {
             name,
             parent: parentIri,
         };
+
+        if (this.filterObj?.tenantId) {
+            payload.tenantId = String(this.filterObj.tenantId);
+        }
+
+        return payload;
     }
 
     slug(text) {

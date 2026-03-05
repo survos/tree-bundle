@@ -20,6 +20,12 @@ class SurvosTreeBundle extends AbstractBundle
     // $config is the bundle Configuration that you usually process in ExtensionInterface::load() but already merged and processed
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
+        $treeStimulusController = $config['tree_stimulus_controller'];
+        $apiTreeStimulusController = $config['api_tree_stimulus_controller'];
+        if (is_string($config['stimulus_controller'] ?? null) && $config['stimulus_controller'] !== '') {
+            $apiTreeStimulusController = $config['stimulus_controller'];
+        }
+
         // enabled the {% tree %} tag
         $x = $builder
             ->setDefinition('jordanlev.tree_extension', new Definition(TreeExtension::class))
@@ -38,6 +44,7 @@ class SurvosTreeBundle extends AbstractBundle
         $builder->register(TreeComponent::class)
             ->setAutowired(true)
             ->setAutoconfigured(true)
+            ->setArgument('$stimulusController', $treeStimulusController)
         ;
 
         $builder->register(TreeInterface::class)
@@ -48,7 +55,7 @@ class SurvosTreeBundle extends AbstractBundle
         $builder->register(ApiTreeComponent::class)
             ->setAutowired(true)
             ->setAutoconfigured(true)
-            ->setArgument('$stimulusController', $config['stimulus_controller'])
+            ->setArgument('$stimulusController', $apiTreeStimulusController)
         ;
     }
 
@@ -57,7 +64,12 @@ class SurvosTreeBundle extends AbstractBundle
         // since the configuration is short, we can add it here
         $definition->rootNode()
             ->children()
-            ->scalarNode('stimulus_controller')->defaultValue('@survos/tree-bundle/tree')->end()
+            ->scalarNode('tree_stimulus_controller')->defaultValue('@survos/tree-bundle/tree')->end()
+            ->scalarNode('api_tree_stimulus_controller')->defaultValue('@survos/tree-bundle/api_tree')->end()
+            ->scalarNode('stimulus_controller')
+                ->defaultNull()
+                ->setDeprecated('survos/tree-bundle', '4.2', 'The "%node%" option is deprecated, use "api_tree_stimulus_controller" and/or "tree_stimulus_controller" instead.')
+                ->end()
             ->end();
 
         ;

@@ -7,6 +7,19 @@ Wrapper for jstree using ApiPlatform.  Also includes a {% tree %} twig tag.
 * A stimulus controller that calls the jstree javascript library
 * Some helpers to integrate with ApiPlatform for editing and creating tree nodes.
 
+## ApiTree default controller
+
+The `api_tree` Twig component should use the API controller by default:
+
+- `@survos/tree-bundle/api_tree`
+
+If an app overrides bundle config, set it explicitly:
+
+```yaml
+survos_tree:
+  stimulus_controller: '@survos/tree-bundle/api_tree'
+```
+
 ## jsTree plugins in this bundle
 
 jsTree's built-in plugins are included in the main jsTree distribution, so you do not install each plugin separately.

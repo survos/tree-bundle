@@ -11,8 +11,9 @@ use Symfony\UX\TwigComponent\Attribute\PreMount;
 #[AsTwigComponent('tree', template: '@SurvosTree/components/tree.html.twig')]
 class TreeComponent
 {
-    public function __construct()
+    public function __construct(?string $stimulusController = null)
     {
+        $this->stimulusController = $stimulusController ?? '@survos/tree-bundle/tree';
     }
 
     public ?iterable $data = null;
@@ -21,7 +22,7 @@ class TreeComponent
 
     public array $filter;
 
-    public ?string $stimulusController = '@survos/tree-bundle/tree';
+    public ?string $stimulusController = null;
 
     #[PreMount]
     public function preMount(array $parameters = []): array
