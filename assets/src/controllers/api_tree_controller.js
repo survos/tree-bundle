@@ -18,6 +18,7 @@ export default class extends Controller {
         this.filterObj = this.parseFilter(this.filterValue);
         this.pendingCreates = new Set();
         this.pendingParentByNodeId = new Map();
+        this.pendingDraftNameByNodeId = new Map();
         this.boundTreeHandlers = [];
         this.notify(`api_tree: ${this.baseUrl}`);
         console.info('[api_tree] connect', {
@@ -67,9 +68,11 @@ export default class extends Controller {
                             if (!tree) {
                                 return;
                             }
-                            const created = tree.create_node(node.id, { text: 'New node' }, 'last');
+                            const label = this.nextChildLabel(node.id);
+                            const created = tree.create_node(node.id, { text: label }, 'last');
                             if (created) {
                                 this.pendingParentByNodeId.set(String(created), String(node.id));
+                                this.pendingDraftNameByNodeId.set(String(created), label);
                                 tree.edit(created);
                             }
                         },
@@ -225,15 +228,15 @@ export default class extends Controller {
         this.unbindTreeEvents();
 
         const listeners = [
-            [['changed.jstree', 'jstree:changed'], this.onChanged],
-            [['select_node.jstree', 'jstree:select_node'], this.onSelectNode],
+            [['jstree:changed'], this.onChanged],
+            [['jstree:select_node'], this.onSelectNode],
         ];
 
         if (this.editableValue) {
-            listeners.push([['create_node.jstree', 'jstree:create_node'], this.onCreateNode]);
-            listeners.push([['rename_node.jstree', 'jstree:rename_node'], this.onRenameNode]);
-            listeners.push([['move_node.jstree', 'jstree:move_node'], this.onMoveNode]);
-            listeners.push([['delete_node.jstree', 'jstree:delete_node'], this.onDeleteNode]);
+            listeners.push([['jstree:create_node'], this.onCreateNode]);
+            listeners.push([['jstree:rename_node'], this.onRenameNode]);
+            listeners.push([['jstree:move_node'], this.onMoveNode]);
+            listeners.push([['jstree:delete_node'], this.onDeleteNode]);
         }
 
         for (const [eventNames, handler] of listeners) {
@@ -264,12 +267,14 @@ export default class extends Controller {
 
         const selected = tree.get_selected();
         const parent = selected.length ? selected[0] : '#';
-        const nodeId = tree.create_node(parent, { text: 'New node' }, 'last');
+        const label = this.nextChildLabel(parent);
+        const nodeId = tree.create_node(parent, { text: label }, 'last');
         if (!nodeId) {
             return;
         }
 
         this.pendingParentByNodeId.set(String(nodeId), String(parent));
+        this.pendingDraftNameByNodeId.set(String(nodeId), label);
 
         tree.open_node(parent);
         tree.deselect_all();
@@ -310,16 +315,59 @@ export default class extends Controller {
     onCreateNode = (event) => {
         const detail = event.detail || {};
         console.debug('[api_tree] create_node.jstree', detail);
+        if (detail.node?.id && !this.pendingParentByNodeId.has(String(detail.node.id))) {
+            this.pendingParentByNodeId.set(String(detail.node.id), String(detail.parent || '#'));
+        }
         this.dispatchNode(detail.node || null, 'create_node', detail);
-        this.persistCreate(detail).catch((error) => {
-            this.notify(`api_tree: create failed (${error.message})`);
-        });
+        this.notify('api_tree: new node created locally, waiting for name');
     }
 
     onRenameNode = (event) => {
         const detail = event.detail || {};
         console.debug('[api_tree] rename_node.jstree', detail);
         this.dispatchNode(detail.node || null, 'rename_node', detail);
+
+        if (detail.node?.id && this.pendingParentByNodeId.has(String(detail.node.id))) {
+            const name = (detail.text || detail.node.text || '').trim();
+            const oldName = (detail.old || '').trim();
+            const pendingName = this.pendingDraftNameByNodeId.get(String(detail.node.id)) || '';
+
+            if (!name) {
+                const tree = getTree(this.ajaxTarget);
+                if (tree) {
+                    tree.delete_node(detail.node);
+                }
+                this.pendingParentByNodeId.delete(String(detail.node.id));
+                this.pendingDraftNameByNodeId.delete(String(detail.node.id));
+                this.notify('api_tree: create cancelled');
+                return;
+            }
+
+            if (name === oldName && name !== pendingName) {
+                return;
+            }
+
+            if (name === oldName && name === pendingName && !name) {
+                const tree = getTree(this.ajaxTarget);
+                if (tree) {
+                    const tree = getTree(this.ajaxTarget);
+                    if (tree) {
+                        tree.delete_node(detail.node);
+                    }
+                }
+                this.pendingParentByNodeId.delete(String(detail.node.id));
+                this.pendingDraftNameByNodeId.delete(String(detail.node.id));
+                this.notify('api_tree: create cancelled');
+                return;
+            }
+
+            const parentId = this.pendingParentByNodeId.get(String(detail.node.id)) || '#';
+            this.persistCreate({ ...detail, parent: parentId }).catch((error) => {
+                this.notify(`api_tree: create failed (${error.message})`);
+            });
+            return;
+        }
+
         this.persistRename(detail).catch((error) => {
             this.notify(`api_tree: rename failed (${error.message})`);
         });
@@ -329,6 +377,13 @@ export default class extends Controller {
         const detail = event.detail || {};
         console.debug('[api_tree] move_node.jstree', detail);
         this.dispatchNode(detail.node || null, 'move_node', detail);
+
+        if (detail.node?.id && this.pendingParentByNodeId.has(String(detail.node.id))) {
+            this.pendingParentByNodeId.set(String(detail.node.id), String(detail.parent || '#'));
+            this.notify('api_tree: moved unsaved node locally');
+            return;
+        }
+
         this.persistMove(detail).catch((error) => {
             this.notify(`api_tree: move failed (${error.message})`);
         });
@@ -338,6 +393,14 @@ export default class extends Controller {
         const detail = event.detail || {};
         console.debug('[api_tree] delete_node.jstree', detail);
         this.dispatchNode(detail.node || null, 'delete_node', detail);
+
+        if (detail.node?.id && this.pendingParentByNodeId.has(String(detail.node.id))) {
+            this.pendingParentByNodeId.delete(String(detail.node.id));
+            this.pendingDraftNameByNodeId.delete(String(detail.node.id));
+            this.notify('api_tree: unsaved node deleted');
+            return;
+        }
+
         this.persistDelete(detail).catch((error) => {
             this.notify(`api_tree: delete failed (${error.message})`);
         });
@@ -362,6 +425,7 @@ export default class extends Controller {
                     tree.delete_node(node);
                 }
                 this.pendingParentByNodeId.delete(String(node.id));
+                this.pendingDraftNameByNodeId.delete(String(node.id));
                 return;
             }
             const created = await this.request(this.baseUrl, 'POST', payload);
@@ -384,7 +448,57 @@ export default class extends Controller {
         } finally {
             this.pendingCreates.delete(node.id);
             this.pendingParentByNodeId.delete(String(node.id));
+            this.pendingDraftNameByNodeId.delete(String(node.id));
         }
+    }
+
+    nextChildLabel(parentId) {
+        const tree = getTree(this.ajaxTarget);
+        if (!tree) {
+            return 'child#1';
+        }
+
+        const parentNode = tree.get_node(parentId || '#');
+        const siblings = (parentNode?.children || [])
+            .map((childId) => tree.get_node(childId)?.text || '')
+            .filter(Boolean);
+
+        const base = this.baseLabelFromParent(parentNode?.text || 'child');
+        let n = 1;
+        let candidate = `${base} ${n}`;
+        const lower = siblings.map((x) => String(x).toLowerCase());
+
+        while (lower.includes(candidate.toLowerCase())) {
+            n += 1;
+            candidate = `${base} ${n}`;
+        }
+
+        return candidate;
+    }
+
+    baseLabelFromParent(parentText) {
+        const raw = String(parentText || 'child').trim();
+        const cleaned = raw.replace(/\s*#?\d+(?:\.\d+)*\s*$/g, '').trim() || 'child';
+        const words = cleaned.split(/\s+/);
+        const last = words[words.length - 1];
+        words[words.length - 1] = this.singularizeWord(last);
+        return words.join(' ');
+    }
+
+    singularizeWord(word) {
+        if (!word) {
+            return 'child';
+        }
+
+        if (/ies$/i.test(word) && word.length > 3) {
+            return word.replace(/ies$/i, 'y');
+        }
+
+        if (/s$/i.test(word) && !/ss$/i.test(word) && word.length > 1) {
+            return word.replace(/s$/i, '');
+        }
+
+        return word;
     }
 
     async persistRename(detail) {
