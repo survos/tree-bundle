@@ -26,7 +26,7 @@ class ApiTreeComponent
 
     public string $apiUrl;
 
-    public string $labelField;
+    public string $labelField = 'name';
 
     public array $filter = [];
 
