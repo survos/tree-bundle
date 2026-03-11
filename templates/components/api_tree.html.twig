@@ -1,38 +1,47 @@
 {# templates/components/api_tree.html.twig #}
+
+{# Emit extracted twig blocks so api_tree_controller can compile them as twig.js templates. #}
+{% set _blocks = this.blocks %}
+{% set _callerId = this.callerName ? ('api-tree-blocks-' ~ this.callerName|replace({'/': '-', '.': '-'})) : 'api-tree-blocks' %}
+<script type="application/json" id="{{ _callerId }}"{% if this.callerName %} data-caller="{{ this.callerName }}"{% endif %}>{{ _blocks|json_encode|raw }}</script>
+
 <div {{ stimulus_controller(this.stimulusController, {
-    api_call: apiUrl|default(api_route(this.class)),
-    filter: this.filter,
-    editable: this.editable
+    api_call: this.apiUrl,
+    label_field: this.labelField,
+    filter: this.filter ? this.filter|json_encode : '{}',
+    editable: this.editable,
+    types: this.types is not empty ? this.types : {},
+    blocks_id: _callerId
 }) }}>
     <div class="mb-2 d-flex gap-2">
         <input
                 type="search"
-                class="form-control"
-                placeholder="Search tree..."
+                class="form-control form-control-sm"
+                placeholder="Search…"
                 {{ stimulus_action(this.stimulusController, 'search', 'input') }}
         />
         <button
                 type="button"
-                class="btn btn-outline-secondary"
+                class="btn btn-sm btn-outline-secondary"
                 {{ stimulus_action(this.stimulusController, 'clearSearch') }}
-        >Clear</button>
+        >×</button>
         {% if this.editable %}
             <button
                     type="button"
-                    class="btn btn-outline-primary"
+                    class="btn btn-sm btn-outline-primary"
                     {{ stimulus_action(this.stimulusController, 'addNode') }}
-            >Add</button>
+            >+</button>
             <button
                     type="button"
-                    class="btn btn-outline-danger"
+                    class="btn btn-sm btn-outline-danger"
                     {{ stimulus_action(this.stimulusController, 'deleteSelected') }}
-            >Delete</button>
+            >✕</button>
         {% endif %}
     </div>
 
-    <div class="small text-muted mb-2" {{ stimulus_target(this.stimulusController, 'message') }}>Loading tree...</div>
+    <div class="small text-muted mb-1" {{ stimulus_target(this.stimulusController, 'message') }}>Loading…</div>
 
     <div {{ stimulus_target(this.stimulusController, 'ajax') }}>
-        <ul><li>Loading...</li></ul>
+        <ul><li>Loading…</li></ul>
     </div>
 </div>

@@ -2,6 +2,8 @@
 
 namespace Survos\Tree\Components;
 
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\IriConverterInterface;
 use Survos\Tree\Model\Column;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
@@ -15,6 +17,7 @@ class ApiTreeComponent
     public function __construct(
         public ?string $stimulusController,
         private readonly Environment $twig,
+        private readonly IriConverterInterface $iriConverter,
     ) {
         $this->stimulusController ??= '@survos/tree-bundle/api_tree';
     }
@@ -25,9 +28,9 @@ class ApiTreeComponent
 
     public string|TemplateWrapper|null $caller = null;
 
-    public string $class;
+    public string $class = '';
 
-    public string $apiUrl;
+    public string $apiUrl = '';
 
     public string $labelField = 'name';
 
@@ -44,6 +47,20 @@ class ApiTreeComponent
         if (($data['caller'] ?? null) instanceof TemplateWrapper) {
             $data['caller'] = $data['caller']->getTemplateName();
         }
+
+        $apiUrl = $data['apiUrl'] ?? '';
+        $class  = $data['class']  ?? '';
+
+        if (!$apiUrl && !$class) {
+            throw new \InvalidArgumentException(
+                'api_tree requires either "apiUrl" or "class" (an API Platform resource class).'
+            );
+        }
+
+        if (!$apiUrl) {
+            $data['apiUrl'] = $this->iriConverter->getIriFromResource($class, operation: new GetCollection());
+        }
+
         return $data;
     }
 
