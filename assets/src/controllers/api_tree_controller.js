@@ -1,6 +1,21 @@
 import { Controller } from '@hotwired/stimulus';
 import { createTree, getTree, destroyTree } from '../jstree_runtime.js';
 
+let _twigRender = null;
+let _compileTwigBlocks = null;
+
+// Lazy-load twig_blocks so the controller works without it if the package is absent.
+async function loadTwigHelpers() {
+    if (_twigRender && _compileTwigBlocks) return;
+    try {
+        const mod = await import('@survos/js-twig-bundle/twig_blocks');
+        _twigRender = mod.twigRender;
+        _compileTwigBlocks = mod.compileTwigBlocks;
+    } catch {
+        // Package not available — twig block rendering disabled.
+    }
+}
+
 export default class extends Controller {
     static targets = ['ajax', 'message'];
 
@@ -11,6 +26,8 @@ export default class extends Controller {
         plugins: { type: Array, default: ['search', 'types', 'dnd', 'contextmenu'] },
         types: { type: Object, default: {} },
         editable: { type: Boolean, default: true },
+        /** ID of a <script type="application/json"> element containing twig block templates. */
+        blocksId: { type: String, default: '' },
     };
 
     async connect() {
@@ -22,12 +39,21 @@ export default class extends Controller {
         this.pendingTypeByNodeId = new Map();
         this.nodeIriById = new Map();
         this.boundTreeHandlers = [];
+        this._tpl = {};
         this.notify(`api_tree: ${this.baseUrl}`);
         console.info('[api_tree] connect', {
             apiCall: this.baseUrl,
             editable: this.editableValue,
             plugins: this.pluginsValue,
+            blocksId: this.blocksIdValue,
         });
+
+        // Load twig.js helpers and compile blocks from the inline <script> registry.
+        await loadTwigHelpers();
+        const blocksId = this.blocksIdValue || 'api-tree-blocks';
+        if (_compileTwigBlocks) {
+            _compileTwigBlocks(this._tpl, blocksId);
+        }
 
         if (!this.hasAjaxTarget || !this.baseUrl) {
             return;
@@ -134,6 +160,20 @@ export default class extends Controller {
         });
 
         this.bindTreeEvents();
+
+        // Shift+click on any node → open_all descendants (like Symfony Dump's shift+click)
+        this.ajaxTarget.addEventListener('click', (e) => {
+            if (!e.shiftKey) return;
+            const anchor = e.target.closest('.jstree-anchor');
+            if (!anchor) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const tree = getTree(this.ajaxTarget);
+            if (!tree) return;
+            const nodeEl = anchor.closest('[role="treeitem"], li');
+            const nodeId = nodeEl?.id;
+            if (nodeId) tree.open_all(nodeId);
+        });
     }
 
     parseFilter(raw) {
@@ -202,12 +242,8 @@ export default class extends Controller {
             const typeDef = this.typesValue?.[nodeType];
             const icon = typeDef?.icon ?? (isDir ? 'bi bi-folder2-open' : 'bi bi-file-earmark');
 
-            // Append image count badge when available and non-zero.
-            const imageCount = node.imageCount ?? node.image_count ?? null;
             const label = this.nodeLabel(node);
-            const text = (imageCount != null && imageCount > 0)
-                ? `${label} <span class="jstree-img-count">${imageCount}</span>`
-                : label;
+            const text = label;
 
             return {
                 id,
@@ -265,7 +301,31 @@ export default class extends Controller {
     }
 
     nodeLabel(node) {
+        // If a compiled twig.js block named 'nodeLabel' is available, use it.
+        if (_twigRender && this._tpl && this._tpl['nodeLabel']) {
+            try {
+                return _twigRender(this._tpl, 'nodeLabel', { node });
+            } catch (e) {
+                console.warn('[api_tree] nodeLabel twig render failed', e);
+            }
+        }
         return node[this.labelFieldValue] ?? node.name ?? node.title ?? this.nodeId(node);
+    }
+
+    /**
+     * Programmatically select a node by id and open it (expand its children).
+     * Called externally, e.g. from station_controller when a child card is clicked.
+     */
+    selectAndOpen(id) {
+        const tree = getTree(this.ajaxTarget);
+        if (!tree) return;
+        const strId = String(id);
+        tree.deselect_all(true);
+        tree.select_node(strId, false, true);
+        tree.open_node(strId);
+        // Scroll the selected node into view
+        const el = this.ajaxTarget.querySelector(`#${CSS.escape(strId)}`);
+        el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
     search(event) {
