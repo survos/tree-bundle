@@ -32,6 +32,9 @@ class ApiTreeComponent
 
     public bool $editable = true;
 
+    /** Per-type icon/style config passed to the jstree types plugin. */
+    public array $types = [];
+
     // @todo: add jstwig
 //    private function getTwigBlocks(): iterable
 //    {

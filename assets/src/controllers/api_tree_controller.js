@@ -19,6 +19,7 @@ export default class extends Controller {
         this.pendingCreates = new Set();
         this.pendingParentByNodeId = new Map();
         this.pendingDraftNameByNodeId = new Map();
+        this.pendingTypeByNodeId = new Map();
         this.nodeIriById = new Map();
         this.boundTreeHandlers = [];
         this.notify(`api_tree: ${this.baseUrl}`);
@@ -61,44 +62,74 @@ export default class extends Controller {
             },
             types: this.typesValue,
             contextmenu: this.editableValue ? {
-                items: (node) => ({
-                    create: {
-                        label: 'Add child',
-                        action: () => {
-                            const tree = getTree(this.ajaxTarget);
-                            if (!tree) {
-                                return;
-                            }
-                            const label = this.nextChildLabel(node.id);
-                            const created = tree.create_node(node.id, { text: label }, 'last');
-                            if (created) {
-                                this.pendingParentByNodeId.set(String(created), String(node.id));
-                                this.pendingDraftNameByNodeId.set(String(created), label);
-                                tree.edit(created);
-                            }
-                        },
-                    },
-                    rename: {
+                items: (node) => {
+                    const items = {};
+
+                    // Build one "New <Type>" entry per configured type,
+                    // skipping generic meta-types that aren't real entity types.
+                    const skipTypes = new Set(['default', 'file', 'dir']);
+                    const typeEntries = Object.entries(this.typesValue || {})
+                        .filter(([key]) => !skipTypes.has(key));
+
+                    if (typeEntries.length > 0) {
+                        typeEntries.forEach(([typeKey, typeDef]) => {
+                            const icon = typeDef.icon ?? '';
+                            const iconHtml = icon ? `<i class="${icon}"></i> ` : '';
+                            const label = typeKey.charAt(0).toUpperCase() + typeKey.slice(1).replace(/-/g, ' ');
+                            items[`create_${typeKey}`] = {
+                                label: `${iconHtml}New ${label}`,
+                                action: () => {
+                                    const tree = getTree(this.ajaxTarget);
+                                    if (!tree) return;
+                                    const draftLabel = `New ${label}`;
+                                    const created = tree.create_node(node.id, { text: draftLabel }, 'last');
+                                    if (created) {
+                                        this.pendingParentByNodeId.set(String(created), String(node.id));
+                                        this.pendingDraftNameByNodeId.set(String(created), draftLabel);
+                                        this.pendingTypeByNodeId.set(String(created), typeKey);
+                                        tree.edit(created);
+                                    }
+                                },
+                            };
+                        });
+                    } else {
+                        // Fallback: no types configured — single generic "Add child"
+                        items.create = {
+                            label: 'Add child',
+                            action: () => {
+                                const tree = getTree(this.ajaxTarget);
+                                if (!tree) return;
+                                const label = this.nextChildLabel(node.id);
+                                const created = tree.create_node(node.id, { text: label }, 'last');
+                                if (created) {
+                                    this.pendingParentByNodeId.set(String(created), String(node.id));
+                                    this.pendingDraftNameByNodeId.set(String(created), label);
+                                    tree.edit(created);
+                                }
+                            },
+                        };
+                    }
+
+                    items.rename = {
+                        separator_before: true,
                         label: 'Rename',
                         action: () => {
                             const tree = getTree(this.ajaxTarget);
-                            if (!tree) {
-                                return;
-                            }
+                            if (!tree) return;
                             tree.edit(node);
                         },
-                    },
-                    remove: {
+                    };
+                    items.remove = {
                         label: 'Delete',
                         action: () => {
                             const tree = getTree(this.ajaxTarget);
-                            if (!tree) {
-                                return;
-                            }
+                            if (!tree) return;
                             tree.delete_node(node);
                         },
-                    },
-                }),
+                    };
+
+                    return items;
+                },
             } : {},
         });
 
@@ -163,23 +194,41 @@ export default class extends Controller {
             const parent = this.nodeParent(node);
             const isDir = node.isDir === true;
 
+            // Use instanceType (API Platform) or isDir as the jstree type.
+            // The types plugin will apply icons/styles per type if typesValue is set.
+            const nodeType = node.instanceType ?? (isDir ? 'dir' : 'file');
+
+            // Determine icon: prefer types config, then instanceType-based default.
+            const typeDef = this.typesValue?.[nodeType];
+            const icon = typeDef?.icon ?? (isDir ? 'bi bi-folder2-open' : 'bi bi-file-earmark');
+
+            // Append image count badge when available and non-zero.
+            const imageCount = node.imageCount ?? node.image_count ?? null;
+            const label = this.nodeLabel(node);
+            const text = (imageCount != null && imageCount > 0)
+                ? `${label} <span class="jstree-img-count">${imageCount}</span>`
+                : label;
+
             return {
                 id,
                 parent,
-                text: this.nodeLabel(node),
-                icon: isDir ? 'bi bi-folder2-open' : 'bi bi-file-earmark',
-                type: isDir ? 'dir' : 'file',
+                text,
+                icon,
+                type: nodeType,
                 data: node,
             };
         });
     }
 
-    nodeId(node) {
-        if (node.code !== undefined && node.code !== null && node.code !== '') {
-            return String(node.code);
-        }
+     nodeId(node) {
+        // Prefer the stable unique id (e.g. xxh3 hash) over code.
+        // code is not globally unique across tenants and causes parent→child
+        // mismatches when parentId is the hash but nodeId is the code.
         if (node.id !== undefined && node.id !== null && node.id !== '') {
             return String(node.id);
+        }
+        if (node.code !== undefined && node.code !== null && node.code !== '') {
+            return String(node.code);
         }
         if (node['@id']) {
             return this.normalizeApiId(node['@id']);
@@ -458,6 +507,7 @@ export default class extends Controller {
             this.pendingCreates.delete(node.id);
             this.pendingParentByNodeId.delete(String(node.id));
             this.pendingDraftNameByNodeId.delete(String(node.id));
+            this.pendingTypeByNodeId.delete(String(node.id));
         }
     }
 
@@ -699,6 +749,9 @@ export default class extends Controller {
         const first = this.firstLoadedNode || {};
         const name = node.text || 'New node';
 
+        // Pick up the instanceType chosen from the context menu (if any).
+        const instanceType = this.pendingTypeByNodeId.get(String(node.id)) ?? null;
+
         if ('code' in first) {
             const code = this.nextUniqueCode(name);
 
@@ -708,6 +761,10 @@ export default class extends Controller {
                 description: name,
                 parent: parentIri,
             };
+
+            if (instanceType) {
+                payload.instanceType = instanceType;
+            }
 
             if (this.filterObj?.tenantId) {
                 payload.tenantId = String(this.filterObj.tenantId);
