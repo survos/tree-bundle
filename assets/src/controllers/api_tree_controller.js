@@ -320,6 +320,19 @@ export default class extends Controller {
         const tree = getTree(this.ajaxTarget);
         if (!tree) return;
         const strId = String(id);
+        // Open all ancestors so the node is visible before selecting it
+        const node = tree.get_node(strId);
+        if (node) {
+            let parentId = tree.get_parent(strId);
+            const toOpen = [];
+            while (parentId && parentId !== '#') {
+                toOpen.unshift(parentId);
+                parentId = tree.get_parent(parentId);
+            }
+            for (const pid of toOpen) {
+                tree.open_node(pid, false, false);
+            }
+        }
         tree.deselect_all(true);
         tree.select_node(strId, false, true);
         tree.open_node(strId);
