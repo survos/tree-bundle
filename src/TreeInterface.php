@@ -3,25 +3,22 @@
 namespace Survos\Tree;
 
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
-use Gedmo\Mapping\Annotation as Gedmo;
-use Gedmo\Tree\Traits\NestedSetEntity;
-use Symfony\Component\Serializer\Attribute\Groups;
 
 interface TreeInterface
 {
-    public function getParent(): ?self;
+    public function getParent(): ?static;
 
-    public function setParent(?TreeInterface $parent): self;
+    public function setParent(?TreeInterface $parent): static;
 
     public function getChildren(): Collection;
 
-    public function addChild(TreeInterface $child): self;
+    public function addChild(TreeInterface $child): static;
 
-    public function removeChild(TreeInterface $child): self;
+    public function removeChild(TreeInterface $child): static;
 
     public function getChildCount(): int;
-    public function getParentId();
 
-    public function getLevel();
+    public function getParentId(): mixed;
+
+    public function getLevel(): int;
 }

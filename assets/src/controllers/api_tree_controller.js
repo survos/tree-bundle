@@ -26,6 +26,8 @@ export default class extends Controller {
         plugins: { type: Array, default: ['search', 'types', 'dnd', 'contextmenu'] },
         types: { type: Object, default: {} },
         editable: { type: Boolean, default: true },
+        /** Open all nodes on initial load. */
+        openAll: { type: Boolean, default: false },
         /** ID of a <script type="application/json"> element containing twig block templates. */
         blocksId: { type: String, default: '' },
     };
@@ -160,6 +162,14 @@ export default class extends Controller {
         });
 
         this.bindTreeEvents();
+
+        // Open all nodes on initial load if requested.
+        if (this.openAllValue) {
+            this.ajaxTarget.addEventListener('ready.jstree', () => {
+                const tree = getTree(this.ajaxTarget);
+                if (tree) tree.open_all();
+            }, { once: true });
+        }
 
         // Shift+click on any node → open_all descendants (like Symfony Dump's shift+click)
         this.ajaxTarget.addEventListener('click', (e) => {
