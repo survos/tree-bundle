@@ -36,7 +36,15 @@ class ApiTreeComponent
 
     public array $filter = [];
 
+    public array $globals = [];
+
+    public ?string $itemApiPattern = null;
+
     public bool $editable = true;
+
+    public bool $openAll = false;
+
+    public bool $selectFirst = false;
 
     /** Per-type icon/style config passed to the jstree types plugin. */
     public array $types = [];
@@ -81,7 +89,14 @@ class ApiTreeComponent
      */
     public function getBlocks(): array
     {
-        return $this->extractTwigComponentBlocks();
+        $blocks = $this->extractTwigComponentBlocks();
+        error_log('[api_tree] extracted blocks for ' . ($this->getCallerName() ?? 'unknown') . ': ' . implode(', ', array_keys($blocks)));
+        return $blocks;
+    }
+
+    protected function componentTagPatterns(): array
+    {
+        return ['api_tree', 'apiTreeBrowser', 'api_tree_browser'];
     }
 
     private function extractTwigComponentBlocks(): array
@@ -114,15 +129,17 @@ class ApiTreeComponent
         // ── Step 2: strip twig: namespace prefix ──────────────────────────────
         $html = str_replace('twig:', '', $protected);
 
-        // ── Step 3: isolate api_tree inner content ────────────────────────────
-        // Match either {% component api_tree ... %}...{% endcomponent %} or
-        // <api_tree ...>...</api_tree> syntax
-        if (preg_match('/<api_tree\b[^>]*>(.*?)<\/api_tree>/s', $html, $m)) {
-            $inner = $m[1];
-        } elseif (preg_match('/component\s+api_tree\b.*?%}(.*?)endcomponent/s', $html, $m)) {
-            $inner = $m[1];
-        } else {
-            $inner = $html;
+        // ── Step 3: isolate this component's inner content ────────────────────
+        $inner = $html;
+        foreach ($this->componentTagPatterns() as $tagName) {
+            if (preg_match(sprintf('/<%s\b[^>]*>(.*?)<\/%s>/s', preg_quote($tagName, '/'), preg_quote($tagName, '/')), $html, $m)) {
+                $inner = $m[1];
+                break;
+            }
+            if (preg_match(sprintf('/component\s+%s\b.*?%%}(.*?)endcomponent/s', preg_quote($tagName, '/')), $html, $m)) {
+                $inner = $m[1];
+                break;
+            }
         }
 
         // ── Step 4: parse with DomCrawler and extract <block> elements ────────

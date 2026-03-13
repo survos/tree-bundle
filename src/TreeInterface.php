@@ -21,4 +21,8 @@ interface TreeInterface
     public function getParentId(): mixed;
 
     public function getLevel(): int;
+
+    public function getSubtreeImageCount(): int;
+
+    public function setSubtreeImageCount(int $count): static;
 }

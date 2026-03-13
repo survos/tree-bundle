@@ -3,14 +3,19 @@
 {# Emit extracted twig blocks so api_tree_controller can compile them as twig.js templates. #}
 {% set _blocks = this.blocks %}
 {% set _callerId = this.callerName ? ('api-tree-blocks-' ~ this.callerName|replace({'/': '-', '.': '-'})) : 'api-tree-blocks' %}
+{% set _hasContentBlock = _blocks.api_tree_content is defined %}
 <script type="application/json" id="{{ _callerId }}"{% if this.callerName %} data-caller="{{ this.callerName }}"{% endif %}>{{ _blocks|json_encode|raw }}</script>
 
 <div {{ stimulus_controller(this.stimulusController, {
     api_call: this.apiUrl,
     label_field: this.labelField,
     filter: this.filter ? this.filter|json_encode : '{}',
+    globals: this.globals ? this.globals|json_encode : '{}',
+    item_api_pattern: this.itemApiPattern,
     editable: this.editable,
-    types: this.types is not empty ? this.types : {},
+    open_all: this.openAll,
+    select_first: this.selectFirst,
+    types: this.types is not empty ? this.types|json_encode : '{}',
     blocks_id: _callerId
 }) }}>
     <div class="mb-2 d-flex gap-2">
@@ -44,4 +49,8 @@
     <div {{ stimulus_target(this.stimulusController, 'ajax') }}>
         <ul><li>Loading…</li></ul>
     </div>
+
+    {% if _hasContentBlock %}
+        <div class="mt-2" {{ stimulus_target(this.stimulusController, 'content') }}></div>
+    {% endif %}
 </div>

@@ -1,0 +1,52 @@
+{% set _blocks = this.blocks %}
+{% set _callerId = this.callerName ? ('api-tree-blocks-' ~ this.callerName|replace({'/': '-', '.': '-'})) : 'api-tree-blocks' %}
+<script type="application/json" id="{{ _callerId }}"{% if this.callerName %} data-caller="{{ this.callerName }}"{% endif %}>{{ _blocks|json_encode|raw }}</script>
+
+<div class="{{ this.browserClasses }}" {{ stimulus_controller(this.stimulusController, {
+    api_call: this.apiUrl,
+    label_field: this.labelField,
+    filter: this.filter ? this.filter|json_encode : '{}',
+    globals: this.globals ? this.globals|json_encode : '{}',
+    item_api_pattern: this.itemApiPattern,
+    editable: this.editable,
+    open_all: this.openAll,
+    select_first: this.selectFirst,
+    types: this.types is not empty ? this.types|json_encode : '{}',
+    blocks_id: _callerId
+}) }}>
+    {% if this.style == 'bootstrap' %}
+        <div class="card h-100 overflow-hidden">
+            <div class="row g-0 h-100">
+                <div class="col-12 col-xl-5 {{ this.resolvedTreePaneClass }} border-end">
+                    <div class="p-2 h-100">
+                        <div class="mb-2 d-flex gap-2">
+                            <input type="search" class="form-control form-control-sm" placeholder="Search..." {{ stimulus_action(this.stimulusController, 'search', 'input') }} />
+                            <button type="button" class="btn btn-sm btn-outline-secondary" {{ stimulus_action(this.stimulusController, 'clearSearch') }}>x</button>
+                            {% if this.editable %}
+                                <button type="button" class="btn btn-sm btn-outline-primary" {{ stimulus_action(this.stimulusController, 'addNode') }}>+</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" {{ stimulus_action(this.stimulusController, 'deleteSelected') }}>x</button>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted mb-1" {{ stimulus_target(this.stimulusController, 'message') }}>Loading...</div>
+                        <div {{ stimulus_target(this.stimulusController, 'ajax') }}><ul><li>Loading...</li></ul></div>
+                    </div>
+                </div>
+                <div class="col-12 col-xl-7 {{ this.resolvedContentPaneClass }}">
+                    <div class="p-3 h-100" {{ stimulus_target(this.stimulusController, 'content') }}>
+                        <div class="text-muted small d-flex align-items-center justify-content-center h-100">{{ this.contentPlaceholder }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="{{ this.resolvedTreePaneClass }}">
+            <div class="mb-2 d-flex gap-2">
+                <input type="search" class="form-control form-control-sm" placeholder="Search..." {{ stimulus_action(this.stimulusController, 'search', 'input') }} />
+                <button type="button" class="btn btn-sm btn-outline-secondary" {{ stimulus_action(this.stimulusController, 'clearSearch') }}>x</button>
+            </div>
+            <div class="small text-muted mb-1" {{ stimulus_target(this.stimulusController, 'message') }}>Loading...</div>
+            <div {{ stimulus_target(this.stimulusController, 'ajax') }}><ul><li>Loading...</li></ul></div>
+        </div>
+        <div class="{{ this.resolvedContentPaneClass }}" {{ stimulus_target(this.stimulusController, 'content') }}>{{ this.contentPlaceholder }}</div>
+    {% endif %}
+</div>

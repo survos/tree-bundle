@@ -17,17 +17,20 @@ async function loadTwigHelpers() {
 }
 
 export default class extends Controller {
-    static targets = ['ajax', 'message'];
+    static targets = ['ajax', 'message', 'content'];
 
     static values = {
         apiCall: { type: String, default: '' },
+        itemApiPattern: { type: String, default: '' },
         labelField: { type: String, default: 'name' },
         filter: { type: String, default: '{}' },
+        globals: { type: String, default: '{}' },
         plugins: { type: Array, default: ['search', 'types', 'dnd', 'contextmenu'] },
         types: { type: Object, default: {} },
         editable: { type: Boolean, default: true },
         /** Open all nodes on initial load. */
         openAll: { type: Boolean, default: false },
+        selectFirst: { type: Boolean, default: false },
         /** ID of a <script type="application/json"> element containing twig block templates. */
         blocksId: { type: String, default: '' },
     };
@@ -35,11 +38,13 @@ export default class extends Controller {
     async connect() {
         this.baseUrl = this.apiCallValue;
         this.filterObj = this.parseFilter(this.filterValue);
+        this.globalsObj = this.parseFilter(this.globalsValue);
         this.pendingCreates = new Set();
         this.pendingParentByNodeId = new Map();
         this.pendingDraftNameByNodeId = new Map();
         this.pendingTypeByNodeId = new Map();
         this.nodeIriById = new Map();
+        this.recordCache = new Map();
         this.boundTreeHandlers = [];
         this._tpl = {};
         this.notify(`api_tree: ${this.baseUrl}`);
@@ -53,8 +58,20 @@ export default class extends Controller {
         // Load twig.js helpers and compile blocks from the inline <script> registry.
         await loadTwigHelpers();
         const blocksId = this.blocksIdValue || 'api-tree-blocks';
+        console.info('[api_tree] twig helper availability', {
+            hasTwigRender: !!_twigRender,
+            hasCompileTwigBlocks: !!_compileTwigBlocks,
+            blocksId,
+        });
         if (_compileTwigBlocks) {
             _compileTwigBlocks(this._tpl, blocksId);
+            console.info('[api_tree] compiled twig blocks', {
+                blocksId,
+                compiledKeys: Object.keys(this._tpl || {}),
+                scriptTag: document.getElementById(blocksId)?.textContent || null,
+            });
+        } else {
+            console.warn('[api_tree] twig block helpers unavailable; using fallback labels', { blocksId });
         }
 
         if (!this.hasAjaxTarget || !this.baseUrl) {
@@ -69,18 +86,28 @@ export default class extends Controller {
             this.unbindTreeEvents();
             destroyTree(this.ajaxTarget);
         }
+        this.autoSelectedNodeId = null;
     }
 
     async renderTree() {
         const members = await this.fetchAllNodes();
         const data = this.toJsTreeData(members);
+        const report = this.validateTreeData(data);
+        const plugins = this.resolvedPlugins();
+
+        if (report.invalidParents.length || report.duplicateIds.length || report.missingIds.length) {
+            this.reportTreeDataIssues(report, members, data);
+        }
 
         this.ajaxTarget.innerHTML = '';
         createTree(this.ajaxTarget, {
-            plugins: this.pluginsValue,
+            plugins,
             core: {
                 data,
                 check_callback: this.editableValue,
+                error: (error) => {
+                    this.handleTreeError(error, members, data);
+                },
                 themes: {
                     name: false,
                     url: false,
@@ -164,12 +191,31 @@ export default class extends Controller {
         this.bindTreeEvents();
 
         // Open all nodes on initial load if requested.
-        if (this.openAllValue) {
-            this.ajaxTarget.addEventListener('ready.jstree', () => {
-                const tree = getTree(this.ajaxTarget);
-                if (tree) tree.open_all();
-            }, { once: true });
-        }
+        this.ajaxTarget.addEventListener('ready.jstree', () => {
+            const tree = getTree(this.ajaxTarget);
+            if (!tree) {
+                return;
+            }
+
+            if (this.openAllValue) {
+                tree.open_all();
+            }
+
+            if (this.selectFirstValue) {
+                const nodes = tree.get_json('#', { flat: true }) || [];
+                const first = nodes.find((node) => node && node.id && node.id !== '#');
+                if (first?.id) {
+                    this.autoSelectedNodeId = String(first.id);
+                    tree.deselect_all(true);
+                    tree.select_node(String(first.id), false, true);
+                    tree.open_node(String(first.id));
+                    this.renderSelectedContent(first).catch((error) => {
+                        this.notify(`api_tree: content failed (${error.message})`);
+                        console.error('[api_tree] initial content render failed', { error, first });
+                    });
+                }
+            }
+        }, { once: true });
 
         // Shift+click on any node → open_all descendants (like Symfony Dump's shift+click)
         this.ajaxTarget.addEventListener('click', (e) => {
@@ -266,6 +312,122 @@ export default class extends Controller {
         });
     }
 
+    validateTreeData(data) {
+        const ids = new Set(['#']);
+        const duplicateIds = [];
+        const missingIds = [];
+
+        for (const node of data) {
+            const id = node?.id ?? null;
+            if (id === null || id === undefined || id === '') {
+                missingIds.push(node);
+                continue;
+            }
+
+            const strId = String(id);
+            if (ids.has(strId)) {
+                duplicateIds.push(node);
+                continue;
+            }
+
+            ids.add(strId);
+        }
+
+        const invalidParents = data.filter((node) => {
+            const parent = node?.parent ?? '#';
+            return parent !== '#' && !ids.has(String(parent));
+        });
+
+        return { invalidParents, duplicateIds, missingIds };
+    }
+
+    reportTreeDataIssues(report, members, data) {
+        if (report.invalidParents.length) {
+            const node = report.invalidParents[0];
+            const raw = members.find((member) => String(this.nodeId(member)) === String(node.id)) ?? null;
+            this.notify(`api_tree: parent id ${node.parent} is missing for node ${node.id}`);
+            console.error('[api_tree] invalid parent references detected', {
+                message: `Parent id ${node.parent} is missing for node ${node.id}`,
+                invalidParents: report.invalidParents,
+                firstInvalidNode: node,
+                firstInvalidRecord: raw,
+                flatTreeData: data,
+            });
+            return;
+        }
+
+        if (report.duplicateIds.length) {
+            const node = report.duplicateIds[0];
+            this.notify(`api_tree: duplicate node id ${node.id}`);
+            console.error('[api_tree] duplicate node ids detected', {
+                duplicateIds: report.duplicateIds,
+                flatTreeData: data,
+            });
+            return;
+        }
+
+        if (report.missingIds.length) {
+            this.notify('api_tree: one or more nodes are missing ids');
+            console.error('[api_tree] nodes missing ids detected', {
+                missingIds: report.missingIds,
+                flatTreeData: data,
+            });
+        }
+    }
+
+    handleTreeError(error, members, data) {
+        const reason = error?.reason || error?.error || 'unknown jstree error';
+        const details = error?.details || null;
+
+        if (error?.error === 'check' && error?.id === 'core_03') {
+            const parsed = this.parseJsTreeErrorData(error?.data);
+            const nodeId = parsed?.obj ?? parsed?.id ?? null;
+            const parentId = parsed?.par ?? parsed?.parent ?? null;
+            console.debug('[api_tree] ignored blocked move/check_callback error', {
+                error,
+                nodeId,
+                parentId,
+                editable: this.editableValue,
+            });
+            return;
+        }
+
+        if (reason === 'Node with invalid parent') {
+            const nodeId = details?.nodeId ?? null;
+            const parentId = details?.parentId ?? null;
+            this.notify(`api_tree: parent id ${parentId} is missing for node ${nodeId}`);
+        } else {
+            this.notify(`api_tree: ${reason}`);
+        }
+
+        console.error('[api_tree] jstree core error', {
+            error,
+            members,
+            flatTreeData: data,
+        });
+    }
+
+    resolvedPlugins() {
+        const plugins = Array.isArray(this.pluginsValue) ? [...this.pluginsValue] : [];
+        if (this.editableValue) {
+            return plugins;
+        }
+
+        return plugins.filter((plugin) => !['dnd', 'contextmenu'].includes(String(plugin)));
+    }
+
+    parseJsTreeErrorData(raw) {
+        if (!raw || typeof raw !== 'string') {
+            return null;
+        }
+
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return null;
+        }
+    }
+
      nodeId(node) {
         // Prefer the stable unique id (e.g. xxh3 hash) over code.
         // code is not globally unique across tenants and causes parent→child
@@ -312,14 +474,36 @@ export default class extends Controller {
 
     nodeLabel(node) {
         // If a compiled twig.js block named 'nodeLabel' is available, use it.
-        if (_twigRender && this._tpl && this._tpl['nodeLabel']) {
+        const hasNodeLabelBlock = this.hasCompiledBlock('nodeLabel');
+        if (_twigRender && hasNodeLabelBlock) {
             try {
-                return _twigRender(this._tpl, 'nodeLabel', { node });
+                const rendered = _twigRender(this._tpl, 'nodeLabel', { node, globals: this.globalsObj });
+                console.debug('[api_tree] rendered nodeLabel block', {
+                    nodeId: node?.id ?? null,
+                    rendered,
+                });
+                return rendered;
             } catch (e) {
                 console.warn('[api_tree] nodeLabel twig render failed', e);
             }
         }
+        console.debug('[api_tree] fallback node label used', {
+            nodeId: node?.id ?? null,
+            availableBlocks: Object.keys(this._tpl || {}),
+            sourceBlocks: Object.keys(this._tpl?.__sources__ || {}),
+            hasTwigRender: !!_twigRender,
+            hasNodeLabelBlock,
+        });
         return node[this.labelFieldValue] ?? node.name ?? node.title ?? this.nodeId(node);
+    }
+
+    hasCompiledBlock(name) {
+        return !!(this._tpl && (
+            this._tpl[name]
+            || this._tpl.__sources__?.[name]
+            || this._tpl.__payloads__?.[name]
+            || this._tpl.__meta__?.blockNames?.includes?.(name)
+        ));
     }
 
     /**
@@ -370,15 +554,15 @@ export default class extends Controller {
         this.unbindTreeEvents();
 
         const listeners = [
-            [['jstree:changed'], this.onChanged],
-            [['jstree:select_node'], this.onSelectNode],
+            [['changed.jstree', 'jstree:changed'], this.onChanged],
+            [['select_node.jstree', 'jstree:select_node'], this.onSelectNode],
         ];
 
         if (this.editableValue) {
-            listeners.push([['jstree:create_node'], this.onCreateNode]);
-            listeners.push([['jstree:rename_node'], this.onRenameNode]);
-            listeners.push([['jstree:move_node'], this.onMoveNode]);
-            listeners.push([['jstree:delete_node'], this.onDeleteNode]);
+            listeners.push([['create_node.jstree', 'jstree:create_node'], this.onCreateNode]);
+            listeners.push([['rename_node.jstree', 'jstree:rename_node'], this.onRenameNode]);
+            listeners.push([['move_node.jstree', 'jstree:move_node'], this.onMoveNode]);
+            listeners.push([['delete_node.jstree', 'jstree:delete_node'], this.onDeleteNode]);
         }
 
         for (const [eventNames, handler] of listeners) {
@@ -451,6 +635,13 @@ export default class extends Controller {
     onSelectNode = (event) => {
         const detail = event.detail || {};
         console.debug('[api_tree] select_node.jstree', detail);
+        if (detail.node?.id && this.autoSelectedNodeId && String(detail.node.id) === this.autoSelectedNodeId) {
+            this.autoSelectedNodeId = null;
+        }
+        this.renderSelectedContent(detail.node || null).catch((error) => {
+            this.notify(`api_tree: content failed (${error.message})`);
+            console.error('[api_tree] content render failed', { error, detail });
+        });
         this.dispatchNode(detail.node || null, 'select_node', detail);
     }
 
@@ -798,6 +989,10 @@ export default class extends Controller {
             return null;
         }
 
+        if (this.itemApiPatternValue) {
+            return this.itemApiPatternValue.replace('0000000000000000', encodeURIComponent(String(nodeId)));
+        }
+
         const base = this.itemBaseUrl();
         if (!base) {
             return null;
@@ -810,13 +1005,29 @@ export default class extends Controller {
         const first = this.firstLoadedNode || {};
         if (first['@id']) {
             const iri = String(first['@id']);
-            const idx = iri.lastIndexOf('/');
-            if (idx > 0) {
-                return iri.slice(0, idx);
+            if (!iri.includes('/subtree')) {
+                const idx = iri.lastIndexOf('/');
+                if (idx > 0) {
+                    return iri.slice(0, idx);
+                }
             }
         }
 
-        return this.collectionBaseUrl();
+        return this.detailBaseUrl() || this.collectionBaseUrl();
+    }
+
+    detailBaseUrl() {
+        const base = this.collectionBaseUrl();
+        if (!base) {
+            return null;
+        }
+
+        const subtreeIdx = base.indexOf('/subtree');
+        if (subtreeIdx > 0) {
+            return base.slice(0, subtreeIdx);
+        }
+
+        return base;
     }
 
     collectionBaseUrl() {
@@ -944,6 +1155,102 @@ export default class extends Controller {
         }
 
         return null;
+    }
+
+    async renderSelectedContent(treeNode) {
+        if (!this.hasContentTarget || !treeNode) {
+            return;
+        }
+
+        const node = treeNode?.data || treeNode;
+        const record = await this.fetchNodeRecord(treeNode);
+
+        let html = this.defaultContentHtml(node, record);
+        const hasContentBlock = this.hasCompiledBlock('api_tree_content');
+        if (_twigRender && hasContentBlock) {
+            html = _twigRender(this._tpl, 'api_tree_content', {
+                node,
+                record,
+                item: record,
+                hydra: record,
+                globals: this.globalsObj,
+            });
+        } else {
+            console.debug('[api_tree] fallback content used', {
+                nodeId: node?.id ?? null,
+                sourceBlocks: Object.keys(this._tpl?.__sources__ || {}),
+                hasContentBlock,
+            });
+        }
+
+        this.contentTarget.innerHTML = html;
+    }
+
+    async fetchNodeRecord(treeNode) {
+        const node = treeNode?.data || treeNode?.original?.data || treeNode;
+        const nodeId = node?.id || treeNode?.id || null;
+        const rawIri = node?.['@id']
+            || treeNode?.data?.['@id']
+            || treeNode?.original?.data?.['@id']
+            || treeNode?.original?.['@id']
+            || (nodeId && this.nodeIriById.has(String(nodeId)) ? this.nodeIriById.get(String(nodeId)) : null)
+            || null;
+        const iri = this.normalizeItemIri(rawIri, nodeId);
+        console.debug('[api_tree] fetchNodeRecord', {
+            nodeId,
+            rawIri,
+            iri,
+            node,
+            treeNode,
+            mapIri: nodeId ? this.nodeIriById.get(String(nodeId)) ?? null : null,
+        });
+        if (!iri) {
+            return node;
+        }
+
+        const key = String(iri);
+        if (this.recordCache.has(key)) {
+            return this.recordCache.get(key);
+        }
+
+        const record = await this.request(key, 'GET');
+        this.recordCache.set(key, record ?? node);
+        return record ?? node;
+    }
+
+    normalizeItemIri(rawIri, nodeId) {
+        if (typeof rawIri === 'string' && rawIri !== '') {
+            if (rawIri.startsWith('/') || rawIri.startsWith('http://') || rawIri.startsWith('https://')) {
+                return rawIri;
+            }
+        }
+
+        return this.inferItemIri(nodeId);
+    }
+
+    defaultContentHtml(node, record) {
+        const item = record || node || {};
+        const title = this.escapeHtml(item.title ?? item.name ?? item.code ?? item.id ?? 'Untitled');
+        const type = this.escapeHtml(item.instanceType ?? item.type ?? 'node');
+        const id = this.escapeHtml(item.id ?? '');
+        const code = this.escapeHtml(item.code ?? '');
+
+        return `
+            <div class="card mt-2">
+                <div class="card-body">
+                    <div class="fw-semibold">${title}</div>
+                    <div class="small text-muted">${type}${code ? ` · ${code}` : ''}${id ? ` · ${id}` : ''}</div>
+                </div>
+            </div>`;
+    }
+
+    escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     dispatchNode(node, msg = 'changed', detail = {}) {
