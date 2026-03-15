@@ -139,7 +139,6 @@ trait TreeTrait
      */
     public static function updateSubtreeCounts(array $nodes): void
     {
-        assert(false, "This smells");
         // Initialise every node's subtreeImageCount to its own direct imageCount.
         foreach ($nodes as $node) {
             $direct = property_exists($node, 'imageCount') ? (int) $node->imageCount : 0;
