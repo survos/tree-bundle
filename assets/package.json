@@ -33,6 +33,6 @@
   "devDependencies": {
     "@hotwired/stimulus": "^3.2.2",
     "jquery": "^4.0.0",
-    "@tacman1123/jstree-esm": "^4.1.0"
+    "@tacman1123/jstree-esm": "^4.1.4"
   }
 }
