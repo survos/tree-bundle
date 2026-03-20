@@ -37,10 +37,14 @@ no `#[Groups]` annotation. For tree entities this is dangerous because:
 - `getTreePath()` walks the parent chain → triggers Doctrine proxy loads for each unique parent = N+1 queries
 - `getTreeUrl()` same
 - These are never needed in collection/tree API responses
+- Serializing the `parent` association itself can trigger per-node lazy loads
 
 ### Solution
 - Remove `'Default'` from entity-level `normalizationContext`
 - Use explicit groups on every serialized method/property
+- In `TreeTrait`, keep `$parent` out of read groups (`Default`, `jstree`).
+  Use `getParentId()` for read-side tree payloads and keep `$parent` only in
+  write groups (e.g. `browse`).
 - Add a `meili` group for expensive computed fields only needed during Meilisearch indexing:
 
 ```php

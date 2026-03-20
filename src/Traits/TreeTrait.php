@@ -34,7 +34,12 @@ trait TreeTrait
     #[Gedmo\TreeParent]
     #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
     #[ORM\JoinColumn(referencedColumnName: 'id', onDelete: 'CASCADE')]
-    #[Groups(['Default', 'browse'])]
+    // IMPORTANT: Do not put $parent in the "Default" read group.
+    // If resource normalization contexts include "Default", serializing the
+    // parent association can trigger per-row proxy hydration (N+1).
+    // Keep association writes in "browse" and expose scalar getParentId()
+    // for tree reads.
+    #[Groups(['browse'])]
     public $parent;
 
     #[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
