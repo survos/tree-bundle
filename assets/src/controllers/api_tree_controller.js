@@ -3,16 +3,112 @@ import { createTree, getTree, destroyTree } from '../jstree_runtime.js';
 
 let _twigRender = null;
 let _compileTwigBlocks = null;
+let _twigHelpersError = null;
+let _twigApiInstalled = false;
+
+async function installSymfonyTwigAdapter(blockRegistry = null) {
+    const registry = blockRegistry && typeof blockRegistry === 'object' ? blockRegistry : null;
+    if (_twigApiInstalled && registry) {
+        return true;
+    }
+
+    const apiCandidates = [
+        '@survos/js-twig-bundle/twig_api',
+        '@survos/js-twig/src/lib/twig_api.js',
+        '/vendor/survos/js-twig-bundle/assets/src/lib/twig_api.js',
+    ];
+
+    const routeCandidates = [
+        '@survos/js-twig/generated/fos_routes.js',
+    ];
+
+    let installTwigAPI = null;
+    let getRegistryEngine = null;
+    let installSymfonyTwigAPI = null;
+    let pathGenerator = null;
+
+    for (const candidate of apiCandidates) {
+        try {
+            const mod = await import(candidate);
+            installTwigAPI = mod.installTwigAPI || null;
+            getRegistryEngine = mod.getRegistryEngine || null;
+            if (installTwigAPI) {
+                break;
+            }
+        } catch {
+            // try next candidate
+        }
+    }
+
+    for (const candidate of routeCandidates) {
+        try {
+            const mod = await import(candidate);
+            pathGenerator = mod.path || null;
+            if (pathGenerator) {
+                break;
+            }
+        } catch {
+            // try next candidate
+        }
+    }
+
+    if (!installTwigAPI) {
+        throw new Error('[api_tree] Missing js-twig API module. Add @survos/js-twig-bundle/twig_api (or @survos/js-twig/src/lib/twig_api.js) to importmap.');
+    }
+
+    if (!pathGenerator) {
+        throw new Error('[api_tree] Missing route generator for Twig path(). Add @survos/js-twig/generated/fos_routes.js to importmap and ensure the cache warmer generated var/js_twig_bundle/generated/fos_routes.js.');
+    }
+
+    const effectiveRegistry = registry || (globalThis.__apiTreeTwigBootstrapRegistry = globalThis.__apiTreeTwigBootstrapRegistry || {});
+
+    try {
+        const adapterMod = await import('@tacman1123/twig-browser/adapters/symfony');
+        installSymfonyTwigAPI = adapterMod.installSymfonyTwigAPI || null;
+    } catch {
+        installSymfonyTwigAPI = null;
+    }
+
+    if (installSymfonyTwigAPI && getRegistryEngine) {
+        const engine = getRegistryEngine(effectiveRegistry);
+        installSymfonyTwigAPI(engine, { pathGenerator });
+    } else {
+        throw new Error('[api_tree] Incompatible js-twig version: modern Symfony adapter is unavailable. Upgrade @survos/js-twig-bundle and @tacman1123/twig-browser.');
+    }
+
+    _twigApiInstalled = true;
+    return true;
+}
 
 // Lazy-load twig_blocks so the controller works without it if the package is absent.
-async function loadTwigHelpers() {
-    if (_twigRender && _compileTwigBlocks) return;
-    try {
-        const mod = await import('@survos/js-twig-bundle/twig_blocks');
-        _twigRender = mod.twigRender;
-        _compileTwigBlocks = mod.compileTwigBlocks;
-    } catch {
-        // Package not available — twig block rendering disabled.
+async function loadTwigHelpers(blockRegistry = null) {
+    if (_twigRender && _compileTwigBlocks) {
+        await installSymfonyTwigAdapter(blockRegistry);
+        return;
+    }
+    const candidates = [
+        '@survos/js-twig-bundle/twig_blocks',
+        '@survos/js-twig/src/lib/twig_blocks.js',
+        '@survos/js-twig-bundle/assets/src/lib/twig_blocks.js',
+        '/vendor/survos/js-twig-bundle/assets/src/lib/twig_blocks.js',
+    ];
+
+    for (const candidate of candidates) {
+        try {
+            const mod = await import(candidate);
+            _twigRender = mod.twigRender;
+            _compileTwigBlocks = mod.compileTwigBlocks;
+            _twigHelpersError = null;
+            const adapterOk = await installSymfonyTwigAdapter(blockRegistry);
+            if (!adapterOk) {
+                console.warn('[api_tree] Twig loaded without Symfony path() adapter. Twig blocks using path() may fail.', {
+                    hint: 'Expose @survos/js-twig/generated/fos_routes.js and @survos/js-twig-bundle/twig_api in importmap.',
+                });
+            }
+            return;
+        } catch (error) {
+            _twigHelpersError = error;
+        }
     }
 }
 
@@ -33,6 +129,7 @@ export default class extends Controller {
         selectFirst: { type: Boolean, default: false },
         /** ID of a <script type="application/json"> element containing twig block templates. */
         blocksId: { type: String, default: '' },
+        debug: { type: Boolean, default: false },
     };
 
     async connect() {
@@ -48,30 +145,40 @@ export default class extends Controller {
         this.boundTreeHandlers = [];
         this._tpl = {};
         this.notify(`api_tree: ${this.baseUrl}`);
-        console.info('[api_tree] connect', {
+        this.dbg('[api_tree] connect', {
             apiCall: this.baseUrl,
             editable: this.editableValue,
             plugins: this.pluginsValue,
             blocksId: this.blocksIdValue,
+            debug: this.debugValue,
         });
 
         // Load twig.js helpers and compile blocks from the inline <script> registry.
-        await loadTwigHelpers();
+        await loadTwigHelpers(this._tpl);
         const blocksId = this.blocksIdValue || 'api-tree-blocks';
-        console.info('[api_tree] twig helper availability', {
+        this.dbg('[api_tree] twig helper availability', {
             hasTwigRender: !!_twigRender,
             hasCompileTwigBlocks: !!_compileTwigBlocks,
             blocksId,
         });
         if (_compileTwigBlocks) {
             _compileTwigBlocks(this._tpl, blocksId);
-            console.info('[api_tree] compiled twig blocks', {
+            this.dbg('[api_tree] compiled twig blocks', {
                 blocksId,
                 compiledKeys: Object.keys(this._tpl || {}),
-                scriptTag: document.getElementById(blocksId)?.textContent || null,
             });
         } else {
-            console.warn('[api_tree] twig block helpers unavailable; using fallback labels', { blocksId });
+            const hasBlocksScript = !!document.getElementById(blocksId);
+            console.warn('[api_tree] Twig block rendering disabled; using fallback labels/content.', {
+                blocksId,
+                hasBlocksScript,
+                hint: "Install/import @survos/js-twig-bundle if you want <twig:block> rendering in api_tree.",
+                importmapHint: "If using importmap, map either @survos/js-twig/src/lib/twig_blocks.js or @survos/js-twig-bundle/twig_blocks.",
+                error: _twigHelpersError ? String(_twigHelpersError) : null,
+            });
+            if (hasBlocksScript) {
+                this.notify('api_tree: custom twig blocks disabled (missing @survos/js-twig-bundle/twig_blocks)');
+            }
         }
 
         if (!this.hasAjaxTarget || !this.baseUrl) {
@@ -247,6 +354,17 @@ export default class extends Controller {
         }
     }
 
+    dbg(message, payload = null) {
+        if (!this.debugValue) {
+            return;
+        }
+        if (payload === null) {
+            console.debug(message);
+            return;
+        }
+        console.debug(message, payload);
+    }
+
     async fetchAllNodes() {
         const url = new URL(this.baseUrl, window.location.origin);
         Object.entries(this.filterObj).forEach(([k, v]) => {
@@ -254,7 +372,7 @@ export default class extends Controller {
                 url.searchParams.set(k, String(v));
             }
         });
-        console.info('[api_tree] fetch URL', url.toString());
+        this.dbg('[api_tree] fetch URL', url.toString());
 
         const response = await fetch(url.toString(), {
             headers: {
@@ -478,7 +596,7 @@ export default class extends Controller {
         if (_twigRender && hasNodeLabelBlock) {
             try {
                 const rendered = _twigRender(this._tpl, 'nodeLabel', { node, globals: this.globalsObj });
-                console.debug('[api_tree] rendered nodeLabel block', {
+                this.dbg('[api_tree] rendered nodeLabel block', {
                     nodeId: node?.id ?? null,
                     rendered,
                 });
@@ -487,7 +605,7 @@ export default class extends Controller {
                 console.warn('[api_tree] nodeLabel twig render failed', e);
             }
         }
-        console.debug('[api_tree] fallback node label used', {
+        this.dbg('[api_tree] fallback node label used', {
             nodeId: node?.id ?? null,
             availableBlocks: Object.keys(this._tpl || {}),
             sourceBlocks: Object.keys(this._tpl?.__sources__ || {}),
@@ -569,7 +687,7 @@ export default class extends Controller {
             for (const eventName of eventNames) {
                 this.ajaxTarget.addEventListener(eventName, handler);
                 this.boundTreeHandlers.push({ eventName, handler });
-                console.debug('[api_tree] bound DOM event', eventName);
+                this.dbg('[api_tree] bound DOM event', eventName);
             }
         }
     }
@@ -635,13 +753,23 @@ export default class extends Controller {
     onSelectNode = (event) => {
         const detail = event.detail || {};
         console.debug('[api_tree] select_node.jstree', detail);
+        const selectedId = detail.node?.id ? String(detail.node.id) : null;
+        const isAutoSelected = !!(selectedId && this.autoSelectedNodeId && selectedId === this.autoSelectedNodeId);
+        const isUserSelection = !!detail.event;
+
         if (detail.node?.id && this.autoSelectedNodeId && String(detail.node.id) === this.autoSelectedNodeId) {
             this.autoSelectedNodeId = null;
         }
-        this.renderSelectedContent(detail.node || null).catch((error) => {
-            this.notify(`api_tree: content failed (${error.message})`);
-            console.error('[api_tree] content render failed', { error, detail });
-        });
+
+        if (isUserSelection || isAutoSelected) {
+            this.renderSelectedContent(detail.node || null).catch((error) => {
+                this.notify(`api_tree: content failed (${error.message})`);
+                console.error('[api_tree] content render failed', { error, detail });
+            });
+        } else {
+            console.debug('[api_tree] skipping content fetch for non-user selection event', { detail });
+        }
+
         this.dispatchNode(detail.node || null, 'select_node', detail);
     }
 

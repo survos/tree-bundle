@@ -2,7 +2,7 @@
 {% set _callerId = this.callerName ? ('api-tree-blocks-' ~ this.callerName|replace({'/': '-', '.': '-'})) : 'api-tree-blocks' %}
 <script type="application/json" id="{{ _callerId }}"{% if this.callerName %} data-caller="{{ this.callerName }}"{% endif %}>{{ _blocks|json_encode|raw }}</script>
 
-<div class="{{ this.browserClasses }}" {{ stimulus_controller(this.stimulusController, {
+<div class="{{ this.browserClasses }} api-tree-browser--themeable" {{ stimulus_controller(this.stimulusController, {
     api_call: this.apiUrl,
     label_field: this.labelField,
     filter: this.filter ? this.filter|json_encode : '{}',
@@ -22,6 +22,9 @@
                         <div class="mb-2 d-flex gap-2">
                             <input type="search" class="form-control form-control-sm" placeholder="Search..." {{ stimulus_action(this.stimulusController, 'search', 'input') }} />
                             <button type="button" class="btn btn-sm btn-outline-secondary" {{ stimulus_action(this.stimulusController, 'clearSearch') }}>x</button>
+                            {% if this.globals.slideshowUrl is defined and this.globals.slideshowUrl %}
+                                <a type="button" class="btn btn-sm btn-outline-secondary" href="{{ this.globals.slideshowUrl }}">Slideshow</a>
+                            {% endif %}
                             {% if this.editable %}
                                 <button type="button" class="btn btn-sm btn-outline-primary" {{ stimulus_action(this.stimulusController, 'addNode') }}>+</button>
                                 <button type="button" class="btn btn-sm btn-outline-danger" {{ stimulus_action(this.stimulusController, 'deleteSelected') }}>x</button>
@@ -43,6 +46,9 @@
             <div class="mb-2 d-flex gap-2">
                 <input type="search" class="form-control form-control-sm" placeholder="Search..." {{ stimulus_action(this.stimulusController, 'search', 'input') }} />
                 <button type="button" class="btn btn-sm btn-outline-secondary" {{ stimulus_action(this.stimulusController, 'clearSearch') }}>x</button>
+                {% if this.globals.slideshowUrl is defined and this.globals.slideshowUrl %}
+                    <a type="button" class="btn btn-sm btn-outline-secondary" href="{{ this.globals.slideshowUrl }}">Slideshow</a>
+                {% endif %}
             </div>
             <div class="small text-muted mb-1" {{ stimulus_target(this.stimulusController, 'message') }}>Loading...</div>
             <div {{ stimulus_target(this.stimulusController, 'ajax') }}><ul><li>Loading...</li></ul></div>
