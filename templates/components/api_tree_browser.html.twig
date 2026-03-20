@@ -21,14 +21,18 @@
                     <div class="p-2 h-100">
                         <div class="d-flex gap-2 py-2 px-2 sticky-top bg-white">
                             <input type="search" class="form-control form-control-sm" placeholder="Search..." {{ stimulus_action(this.stimulusController, 'search', 'input') }} />
-                            <button type="button" class="btn btn-sm text-secondary" {{ stimulus_action(this.stimulusController, 'clearSearch') }}>x</button>
+                            <button type="button" class="btn btn-sm text-secondary" {{ stimulus_action(this.stimulusController, 'clearSearch') }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="1.25em" height="1.25em" viewBox="0 0 24 24">
+                                    <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 6L6 18m12 0L6 6" />
+                                </svg>
+                            </button>
                             {% if this.editable %}
                                 <button type="button" class="btn btn-sm text-primary" {{ stimulus_action(this.stimulusController, 'addNode') }}>+</button>
                                 <button type="button" class="btn btn-sm text-danger" {{ stimulus_action(this.stimulusController, 'deleteSelected') }}>x</button>
                             {% endif %}
                         </div>
                         <div class="small text-muted my-2 px-2" {{ stimulus_target(this.stimulusController, 'message') }}>Loading...</div>
-                        <div class="overflow-y-scroll" {{ stimulus_target(this.stimulusController, 'ajax') }}><ul><li>Loading...</li></ul></div>
+                        <div class="px-1 overflow-y-scroll" {{ stimulus_target(this.stimulusController, 'ajax') }}><ul><li>Loading...</li></ul></div>
                     </div>
                 </div>
                 <div class="col-12 col-xl-7 {{ this.resolvedContentPaneClass }}">
@@ -42,12 +46,34 @@
         <div class="{{ this.resolvedTreePaneClass }}">
             <div class="d-flex gap-2 py-2 px-2 sticky-top bg-white">
                 <input type="search" class="form-control form-control-sm" placeholder="Search..." {{ stimulus_action(this.stimulusController, 'search', 'input') }} />
-                <button type="button" class="btn btn-sm text-secondary" {{ stimulus_action(this.stimulusController, 'clearSearch') }}>x</button>
+                <button type="button" class="btn btn-sm text-secondary" {{ stimulus_action(this.stimulusController, 'clearSearch') }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1.25em" height="1.25em" viewBox="0 0 24 24">
+                        <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 6L6 18m12 0L6 6" />
+                    </svg>
+                </button>
             </div>
             <div class="small text-muted my-2 px-2" {{ stimulus_target(this.stimulusController, 'message') }}>Loading...</div>
-            <div class="overflow-y-scroll" {{ stimulus_target(this.stimulusController, 'ajax') }}><ul><li>Loading...</li></ul></div>
+            <div class="px-1 overflow-y-scroll" {{ stimulus_target(this.stimulusController, 'ajax') }}><ul><li>Loading...</li></ul></div>
         </div>
         <div class="{{ this.resolvedContentPaneClass }}" {{ stimulus_target(this.stimulusController, 'content') }}>{{ this.contentPlaceholder }}</div>
     {% endif %}
 </div>
 
+<style>
+    :root {
+        --jstree-icon-size: 16px;
+        --jstree-radius: 4px;
+    }
+    .jstree-node > .jstree-children {
+        margin-left: calc(var(--jstree-icon-size) + 11px) !important;
+        padding-left: 4px !important;
+    }
+    .jstree-node {
+        margin-bottom: 0 !important;
+        margin-top: 0 !important;
+        padding: 0 !important;
+    }
+    .jstree-anchor {
+        padding: 2px 4px !important
+    }
+</style>
