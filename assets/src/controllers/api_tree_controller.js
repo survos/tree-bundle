@@ -189,6 +189,9 @@ export default class extends Controller {
     }
 
     disconnect() {
+        if (this._searchTimer) {
+            clearTimeout(this._searchTimer);
+        }
         if (this.hasAjaxTarget) {
             this.unbindTreeEvents();
             destroyTree(this.ajaxTarget);
@@ -655,17 +658,49 @@ export default class extends Controller {
 
     search(event) {
         const term = (event.currentTarget?.value || '').trim();
-        const tree = getTree(this.ajaxTarget);
-        if (tree) {
-            tree.search(term);
+
+        if (this._searchTimer) {
+            clearTimeout(this._searchTimer);
         }
+
+        this._searchTimer = setTimeout(() => {
+            const tree = getTree(this.ajaxTarget);
+            if (!tree) return;
+
+            if (term === '') {
+                this.clearSearch();
+            } else {
+                tree.search(term);
+            }
+        }, 250);
     }
 
     clearSearch() {
+        if (this._searchTimer) {
+            clearTimeout(this._searchTimer);
+        }
+
+        const searchInput = this.element.querySelector('input[type="search"]');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
         const tree = getTree(this.ajaxTarget);
-        if (tree) {
+        if (!tree) return;
+
+        if (tree._data?.search?.res?.length > 0) {
             tree.clear_search();
         }
+
+        tree.close_all();
+
+        const rootNodes = tree.get_node('#').children;
+        if (rootNodes.length) {
+            tree.open_node(rootNodes[0]);
+        }
+
+        const firstNode = this.ajaxTarget.querySelector('li');
+        firstNode?.scrollIntoView({ block: 'start' });
     }
 
     bindTreeEvents() {
@@ -674,6 +709,7 @@ export default class extends Controller {
         const listeners = [
             [['changed.jstree', 'jstree:changed'], this.onChanged],
             [['select_node.jstree', 'jstree:select_node'], this.onSelectNode],
+            [['search.jstree'], this.onSearch],
         ];
 
         if (this.editableValue) {
@@ -771,6 +807,17 @@ export default class extends Controller {
         }
 
         this.dispatchNode(detail.node || null, 'select_node', detail);
+    }
+
+    onSearch = (event) => {
+        const nodes = event.detail?.nodes || [];
+        if (!nodes.length) return;
+
+        const firstId = typeof nodes[0] === 'string' ? nodes[0] : nodes[0]?.id;
+        if (!firstId) return;
+
+        const el = this.ajaxTarget.querySelector(`#${CSS.escape(String(firstId))}`);
+        el?.scrollIntoView({ block: 'nearest' });
     }
 
     onCreateNode = (event) => {
@@ -1393,3 +1440,4 @@ export default class extends Controller {
         window.dispatchEvent(new CustomEvent('apitree_changed', { detail: payload }));
     }
 }
+
