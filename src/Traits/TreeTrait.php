@@ -32,7 +32,7 @@ trait TreeTrait
     // or use a dedicated ?parentId= query param handled via DQL.
 
     #[Gedmo\TreeParent]
-    #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
+    #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children', cascade: ['persist'])]
     #[ORM\JoinColumn(referencedColumnName: 'id', onDelete: 'CASCADE')]
     // IMPORTANT: Do not put $parent in the "Default" read group.
     // If resource normalization contexts include "Default", serializing the
