@@ -121,6 +121,7 @@ export default class extends Controller {
         labelField: { type: String, default: 'name' },
         filter: { type: String, default: '{}' },
         globals: { type: String, default: '{}' },
+        selectedId: { type: String, default: '' },
         plugins: { type: Array, default: ['search', 'types', 'dnd', 'contextmenu'] },
         types: { type: Object, default: {} },
         editable: { type: Boolean, default: true },
@@ -186,6 +187,17 @@ export default class extends Controller {
         }
 
         await this.renderTree();
+
+        this._onExternalSelect = (event) => {
+            const requestedId = event.detail?.id ?? event.detail?.data?.id ?? null;
+            if (!requestedId) {
+                return;
+            }
+
+            this.autoSelectedNodeId = String(requestedId);
+            this.selectAndOpen(requestedId);
+        };
+        window.addEventListener('apitree:select', this._onExternalSelect);
     }
 
     disconnect() {
@@ -195,6 +207,10 @@ export default class extends Controller {
         if (this.hasAjaxTarget) {
             this.unbindTreeEvents();
             destroyTree(this.ajaxTarget);
+        }
+        if (this._onExternalSelect) {
+            window.removeEventListener('apitree:select', this._onExternalSelect);
+            this._onExternalSelect = null;
         }
         this.autoSelectedNodeId = null;
     }
@@ -326,6 +342,12 @@ export default class extends Controller {
 
             if (this.openAllValue) {
                 tree.open_all();
+            }
+
+            if (this.selectedIdValue) {
+                this.autoSelectedNodeId = String(this.selectedIdValue);
+                this.selectAndOpen(this.selectedIdValue);
+                return;
             }
 
             if (this.selectFirstValue) {

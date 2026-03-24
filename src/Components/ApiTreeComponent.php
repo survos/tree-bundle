@@ -38,6 +38,8 @@ class ApiTreeComponent
 
     public array $globals = [];
 
+    public ?string $selectedId = null;
+
     public ?string $itemApiPattern = null;
 
     public bool $editable = true;
