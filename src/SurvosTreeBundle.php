@@ -6,6 +6,7 @@ use Survos\CoreBundle\Traits\HasAssetMapperTrait;
 use Survos\Tree\Components\ApiTreeBrowserComponent;
 use Survos\Tree\Components\ApiTreeComponent;
 use Survos\Tree\Components\TreeComponent;
+use Survos\Tree\Service\TreeSnapshotBuilder;
 use Survos\Tree\Twig\TwigExtension;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -63,6 +64,12 @@ class SurvosTreeBundle extends AbstractBundle
             ->setAutowired(true)
             ->setAutoconfigured(true)
             ->setArgument('$stimulusController', $apiTreeStimulusController)
+        ;
+
+        $builder->register(TreeSnapshotBuilder::class)
+            ->setAutowired(true)
+            ->setAutoconfigured(true)
+            ->setPublic(true)
         ;
     }
 
