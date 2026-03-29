@@ -20,8 +20,9 @@ And provide `:caller="_self"` when embedding `<twig:block>` children.
 
 To use embedded twig blocks in the browser:
 
-- `@survos/js-twig-bundle/twig_blocks`
-- `@survos/js-twig-bundle/twig_api`
+- `@tacman1123/twig-browser`
+- `@tacman1123/twig-browser/adapters/symfony`
+- `@tacman1123/twig-browser/src/compat/compileTwigBlocks.js`
 - `@survos/js-twig/generated/fos_routes.js`
 
 Without these, client-side block rendering cannot resolve Twig functions like `path()`.

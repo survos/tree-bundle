@@ -16,10 +16,11 @@ composer require survos/tree-bundle
 
 ## Required JS modules (important)
 
-`apiTreeBrowser` can render embedded Twig blocks in the browser (via js-twig). For this to work reliably, your importmap must include:
+`apiTreeBrowser` can render embedded Twig blocks in the browser. For this to work reliably, your importmap must include:
 
-- `@survos/js-twig-bundle/twig_blocks`
-- `@survos/js-twig-bundle/twig_api`
+- `@tacman1123/twig-browser`
+- `@tacman1123/twig-browser/adapters/symfony`
+- `@tacman1123/twig-browser/src/compat/compileTwigBlocks.js`
 - `@survos/js-twig/generated/fos_routes.js` (for `path()` in client-side twig)
 
 If these are missing or incompatible, the controller now fails fast with a clear error instead of silently falling back.
@@ -120,7 +121,7 @@ Legacy `stimulus_controller` is deprecated.
 - Error: `Twig function path is not configured`
   - Ensure `@survos/js-twig/generated/fos_routes.js` is mapped in importmap.
   - Ensure `var/js_twig_bundle/generated/fos_routes.js` exists (cache warmer).
-  - Ensure `@survos/js-twig-bundle/twig_api` + `twig_blocks` are mapped.
+  - Ensure `@tacman1123/twig-browser`, `@tacman1123/twig-browser/adapters/symfony`, and `@tacman1123/twig-browser/src/compat/compileTwigBlocks.js` are mapped.
 
 - Detail block cannot see `tenantId`
   - Use `globals.tenantId` unless you explicitly flatten into top-level context.

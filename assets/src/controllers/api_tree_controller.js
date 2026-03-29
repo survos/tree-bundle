@@ -1,115 +1,32 @@
 import { Controller } from '@hotwired/stimulus';
 import { createTree, getTree, destroyTree } from '../jstree_runtime.js';
+import { createEngine } from '@tacman1123/twig-browser';
+import { installSymfonyTwigAPI } from '@tacman1123/twig-browser/adapters/symfony';
+import { compileTwigBlocks as compileTwigBlocksCompat } from '@tacman1123/twig-browser/src/compat/compileTwigBlocks.js';
 
-let _twigRender = null;
-let _compileTwigBlocks = null;
 let _twigHelpersError = null;
-let _twigApiInstalled = false;
+let _twigEngine = null;
 
-async function installSymfonyTwigAdapter(blockRegistry = null) {
-    const registry = blockRegistry && typeof blockRegistry === 'object' ? blockRegistry : null;
-    if (_twigApiInstalled && registry) {
-        return true;
+async function loadTwigHelpers() {
+    if (_twigEngine) {
+        return _twigEngine;
     }
 
-    const apiCandidates = [
-        '@survos/js-twig-bundle/twig_api',
-        '@survos/js-twig/src/lib/twig_api.js',
-        '/vendor/survos/js-twig-bundle/assets/src/lib/twig_api.js',
-    ];
-
-    const routeCandidates = [
-        '@survos/js-twig/generated/fos_routes.js',
-    ];
-
-    let installTwigAPI = null;
-    let getRegistryEngine = null;
-    let installSymfonyTwigAPI = null;
     let pathGenerator = null;
-
-    for (const candidate of apiCandidates) {
-        try {
-            const mod = await import(candidate);
-            installTwigAPI = mod.installTwigAPI || null;
-            getRegistryEngine = mod.getRegistryEngine || null;
-            if (installTwigAPI) {
-                break;
-            }
-        } catch {
-            // try next candidate
-        }
-    }
-
-    for (const candidate of routeCandidates) {
-        try {
-            const mod = await import(candidate);
-            pathGenerator = mod.path || null;
-            if (pathGenerator) {
-                break;
-            }
-        } catch {
-            // try next candidate
-        }
-    }
-
-    if (!installTwigAPI) {
-        throw new Error('[api_tree] Missing js-twig API module. Add @survos/js-twig-bundle/twig_api (or @survos/js-twig/src/lib/twig_api.js) to importmap.');
+    try {
+        const mod = await import('@survos/js-twig/generated/fos_routes.js');
+        pathGenerator = mod.path || null;
+    } catch (error) {
+        _twigHelpersError = error;
     }
 
     if (!pathGenerator) {
         throw new Error('[api_tree] Missing route generator for Twig path(). Add @survos/js-twig/generated/fos_routes.js to importmap and ensure the cache warmer generated var/js_twig_bundle/generated/fos_routes.js.');
     }
 
-    const effectiveRegistry = registry || (globalThis.__apiTreeTwigBootstrapRegistry = globalThis.__apiTreeTwigBootstrapRegistry || {});
-
-    try {
-        const adapterMod = await import('@tacman1123/twig-browser/adapters/symfony');
-        installSymfonyTwigAPI = adapterMod.installSymfonyTwigAPI || null;
-    } catch {
-        installSymfonyTwigAPI = null;
-    }
-
-    if (installSymfonyTwigAPI && getRegistryEngine) {
-        const engine = getRegistryEngine(effectiveRegistry);
-        installSymfonyTwigAPI(engine, { pathGenerator });
-    } else {
-        throw new Error('[api_tree] Incompatible js-twig version: modern Symfony adapter is unavailable. Upgrade @survos/js-twig-bundle and @tacman1123/twig-browser.');
-    }
-
-    _twigApiInstalled = true;
-    return true;
-}
-
-// Lazy-load twig_blocks so the controller works without it if the package is absent.
-async function loadTwigHelpers(blockRegistry = null) {
-    if (_twigRender && _compileTwigBlocks) {
-        await installSymfonyTwigAdapter(blockRegistry);
-        return;
-    }
-    const candidates = [
-        '@survos/js-twig-bundle/twig_blocks',
-        '@survos/js-twig/src/lib/twig_blocks.js',
-        '@survos/js-twig-bundle/assets/src/lib/twig_blocks.js',
-        '/vendor/survos/js-twig-bundle/assets/src/lib/twig_blocks.js',
-    ];
-
-    for (const candidate of candidates) {
-        try {
-            const mod = await import(candidate);
-            _twigRender = mod.twigRender;
-            _compileTwigBlocks = mod.compileTwigBlocks;
-            _twigHelpersError = null;
-            const adapterOk = await installSymfonyTwigAdapter(blockRegistry);
-            if (!adapterOk) {
-                console.warn('[api_tree] Twig loaded without Symfony path() adapter. Twig blocks using path() may fail.', {
-                    hint: 'Expose @survos/js-twig/generated/fos_routes.js and @survos/js-twig-bundle/twig_api in importmap.',
-                });
-            }
-            return;
-        } catch (error) {
-            _twigHelpersError = error;
-        }
-    }
+    _twigEngine = createEngine();
+    installSymfonyTwigAPI(_twigEngine, { pathGenerator });
+    return _twigEngine;
 }
 
 export default class extends Controller {
@@ -155,15 +72,16 @@ export default class extends Controller {
         });
 
         // Load twig.js helpers and compile blocks from the inline <script> registry.
-        await loadTwigHelpers(this._tpl);
+        await loadTwigHelpers();
+        this._twigEngine = _twigEngine;
         const blocksId = this.blocksIdValue || 'api-tree-blocks';
         this.dbg('[api_tree] twig helper availability', {
-            hasTwigRender: !!_twigRender,
-            hasCompileTwigBlocks: !!_compileTwigBlocks,
+            hasTwigEngine: !!this._twigEngine,
+            hasCompileTwigBlocks: true,
             blocksId,
         });
-        if (_compileTwigBlocks) {
-            _compileTwigBlocks(this._tpl, blocksId);
+        if (this._twigEngine) {
+            compileTwigBlocksCompat(this._twigEngine, this._tpl, blocksId);
             this.dbg('[api_tree] compiled twig blocks', {
                 blocksId,
                 compiledKeys: Object.keys(this._tpl || {}),
@@ -173,12 +91,12 @@ export default class extends Controller {
             console.warn('[api_tree] Twig block rendering disabled; using fallback labels/content.', {
                 blocksId,
                 hasBlocksScript,
-                hint: "Install/import @survos/js-twig-bundle if you want <twig:block> rendering in api_tree.",
-                importmapHint: "If using importmap, map either @survos/js-twig/src/lib/twig_blocks.js or @survos/js-twig-bundle/twig_blocks.",
+                hint: 'Install/import @tacman1123/twig-browser and its Symfony adapter for <twig:block> rendering in api_tree.',
+                importmapHint: 'Map @tacman1123/twig-browser, @tacman1123/twig-browser/adapters/symfony, and @tacman1123/twig-browser/src/compat/compileTwigBlocks.js.',
                 error: _twigHelpersError ? String(_twigHelpersError) : null,
             });
             if (hasBlocksScript) {
-                this.notify('api_tree: custom twig blocks disabled (missing @survos/js-twig-bundle/twig_blocks)');
+                this.notify('api_tree: custom twig blocks disabled (missing @tacman1123/twig-browser compat modules)');
             }
         }
 
@@ -635,9 +553,9 @@ export default class extends Controller {
     nodeLabel(node) {
         // If a compiled twig.js block named 'nodeLabel' is available, use it.
         const hasNodeLabelBlock = this.hasCompiledBlock('nodeLabel');
-        if (_twigRender && hasNodeLabelBlock) {
+        if (this._twigEngine && hasNodeLabelBlock) {
             try {
-                const rendered = _twigRender(this._tpl, 'nodeLabel', { node, globals: this.globalsObj });
+                const rendered = this._twigEngine.renderBlock('nodeLabel', { node, globals: this.globalsObj });
                 this.dbg('[api_tree] rendered nodeLabel block', {
                     nodeId: node?.id ?? null,
                     rendered,
@@ -651,7 +569,7 @@ export default class extends Controller {
             nodeId: node?.id ?? null,
             availableBlocks: Object.keys(this._tpl || {}),
             sourceBlocks: Object.keys(this._tpl?.__sources__ || {}),
-            hasTwigRender: !!_twigRender,
+            hasTwigEngine: !!this._twigEngine,
             hasNodeLabelBlock,
         });
         return node[this.labelFieldValue] ?? node.name ?? node.title ?? this.nodeId(node);
@@ -1381,8 +1299,8 @@ export default class extends Controller {
 
         let html = this.defaultContentHtml(node, record);
         const hasContentBlock = this.hasCompiledBlock('api_tree_content');
-        if (_twigRender && hasContentBlock) {
-            html = _twigRender(this._tpl, 'api_tree_content', {
+        if (this._twigEngine && hasContentBlock) {
+            html = this._twigEngine.renderBlock('api_tree_content', {
                 node,
                 record,
                 item: record,
