@@ -1,5 +1,5 @@
 {
-  "name": "@survos/tree-bundle",
+  "name": "@survos/tree",
   "description": "integrate php and javascript helpers for JSTree.com",
   "license": "MIT",
   "version": "1.0.3",
@@ -19,7 +19,6 @@
       }
     }
   },
-
   "importmap": {
     "@hotwired/stimulus": "^3.2.2",
     "@tacman1123/jstree-esm": "^4.1.0"

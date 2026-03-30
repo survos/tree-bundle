@@ -13,7 +13,7 @@ class TreeComponent
 {
     public function __construct(?string $stimulusController = null)
     {
-        $this->stimulusController = $stimulusController ?? '@survos/tree-bundle/tree';
+        $this->stimulusController = $stimulusController ?? '@survos/tree/tree';
     }
 
     public ?iterable $data = null;

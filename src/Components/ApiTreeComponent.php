@@ -19,7 +19,7 @@ class ApiTreeComponent
         private readonly Environment $twig,
         private readonly IriConverterInterface $iriConverter,
     ) {
-        $this->stimulusController ??= '@survos/tree-bundle/api_tree';
+        $this->stimulusController ??= '@survos/tree/api_tree';
     }
 
     public iterable $data;

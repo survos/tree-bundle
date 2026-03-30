@@ -2,7 +2,7 @@
 
 namespace Survos\Tree;
 
-use Survos\CoreBundle\Traits\HasAssetMapperTrait;
+use Survos\CoreBundle\Bundle\AssetMapperBundle;
 use Survos\Tree\Components\ApiTreeBrowserComponent;
 use Survos\Tree\Components\ApiTreeComponent;
 use Survos\Tree\Components\TreeComponent;
@@ -12,13 +12,13 @@ use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
-use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 use Twig\Environment;
 use JordanLev\TwigTreeTag\Twig\Extension\TreeExtension;
 
-class SurvosTreeBundle extends AbstractBundle
+class SurvosTreeBundle extends AssetMapperBundle
 {
-    use HasAssetMapperTrait;
+    public const ASSET_PACKAGE = 'tree';
+
     // $config is the bundle Configuration that you usually process in ExtensionInterface::load() but already merged and processed
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
@@ -78,8 +78,8 @@ class SurvosTreeBundle extends AbstractBundle
         // since the configuration is short, we can add it here
         $definition->rootNode()
             ->children()
-            ->scalarNode('tree_stimulus_controller')->defaultValue('@survos/tree-bundle/tree')->end()
-            ->scalarNode('api_tree_stimulus_controller')->defaultValue('@survos/tree-bundle/api_tree')->end()
+            ->scalarNode('tree_stimulus_controller')->defaultValue('@survos/tree/tree')->end()
+            ->scalarNode('api_tree_stimulus_controller')->defaultValue('@survos/tree/api_tree')->end()
             ->scalarNode('stimulus_controller')
                 ->defaultNull()
                 ->setDeprecated('survos/tree-bundle', '4.2', 'The "%node%" option is deprecated, use "api_tree_stimulus_controller" and/or "tree_stimulus_controller" instead.')
@@ -90,21 +90,4 @@ class SurvosTreeBundle extends AbstractBundle
     }
 
 
-    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
-    {
-        if (!$this->isAssetMapperAvailable($builder)) {
-            return;
-        }
-
-        $dir = realpath(__DIR__.'/../assets/');
-        assert(file_exists($dir), $dir);
-
-        $builder->prependExtensionConfig('framework', [
-            'asset_mapper' => [
-                'paths' => [
-                    $dir => '@survos/tree',
-                ],
-            ],
-        ]);
-    }
 }
