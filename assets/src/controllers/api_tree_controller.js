@@ -3,6 +3,7 @@ import { createTree, getTree, destroyTree } from '../jstree_runtime.js';
 import { createEngine } from '@tacman1123/twig-browser';
 import { installSymfonyTwigAPI } from '@tacman1123/twig-browser/adapters/symfony';
 import { compileTwigBlocks as compileTwigBlocksCompat } from '@tacman1123/twig-browser/src/compat/compileTwigBlocks.js';
+import { sourceFromScriptContent } from '../lib/twig_block_registry.mjs';
 
 let _twigHelpersError = null;
 let _twigEngine = null;
@@ -27,6 +28,29 @@ async function loadTwigHelpers() {
     _twigEngine = createEngine();
     installSymfonyTwigAPI(_twigEngine, { pathGenerator });
     return _twigEngine;
+}
+
+function compileBlocks(engine, registry, blocksId) {
+    const scriptEl = typeof document !== 'undefined' ? document.getElementById(blocksId) : null;
+
+    if (!scriptEl) {
+        compileTwigBlocksCompat(engine, registry, blocksId);
+        return;
+    }
+
+    const raw = scriptEl.textContent ?? '';
+    let source;
+    try {
+        source = sourceFromScriptContent(raw);
+    } catch (error) {
+        console.warn('[api_tree] Failed to parse JSON block registry, falling back to direct source parsing.', {
+            blocksId,
+            error: String(error),
+        });
+        source = raw;
+    }
+
+    compileTwigBlocksCompat(engine, registry, source);
 }
 
 export default class extends Controller {
@@ -81,11 +105,23 @@ export default class extends Controller {
             blocksId,
         });
         if (this._twigEngine) {
-            compileTwigBlocksCompat(this._twigEngine, this._tpl, blocksId);
-            this.dbg('[api_tree] compiled twig blocks', {
-                blocksId,
-                compiledKeys: Object.keys(this._tpl || {}),
-            });
+            try {
+                compileBlocks(this._twigEngine, this._tpl, blocksId);
+                this.dbg('[api_tree] compiled twig blocks', {
+                    blocksId,
+                    compiledKeys: Object.keys(this._tpl || {}),
+                });
+            } catch (error) {
+                const scriptEl = document.getElementById(blocksId);
+                const snippet = (scriptEl?.textContent ?? '').trim().slice(0, 240);
+                console.warn('[api_tree] Twig block compile failed; falling back to default labels/content.', {
+                    blocksId,
+                    error: String(error),
+                    scriptType: scriptEl?.type ?? null,
+                    scriptSnippet: snippet,
+                });
+                this.notify('api_tree: custom twig blocks failed to compile; using fallback rendering');
+            }
         } else {
             const hasBlocksScript = !!document.getElementById(blocksId);
             console.warn('[api_tree] Twig block rendering disabled; using fallback labels/content.', {

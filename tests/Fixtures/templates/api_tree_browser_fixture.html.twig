@@ -1,0 +1,30 @@
+<twig:apiTreeBrowser
+    :resourceClass="entityClass"
+    :apiUrl="treeApiUrl"
+    :filter="{ tenantId: tenantId }"
+    :editable="canWrite"
+    :openAll="true"
+    :selectFirst="false"
+    selectedId="{{ instance.id }}"
+    :globals="globals"
+    :caller="_self"
+>
+    <twig:block name="nodeLabel">
+        {{ (node.title ?? node.name ?? node.code ?? node.id)|default('Untitled') }}
+        {% if node.imageCount is defined and node.imageCount %}
+            <small class="text-muted">({{ node.imageCount }})</small>
+        {% endif %}
+    </twig:block>
+
+    <twig:block name="api_tree_content">
+        {% set item = record ?? node %}
+        {% set params = { tenantId: globals.tenantId, instanceId: item.id } %}
+        <div class="header">
+            <h5>{{ item.title ?? item.name ?? item.code ?? item.id }}</h5>
+            <a href="{{ path('instance_browse', params) }}">Browse</a>
+            {% if globals.canWrite %}
+                <span>{{ globals.canWrite }}</span>
+            {% endif %}
+        </div>
+    </twig:block>
+</twig:apiTreeBrowser>

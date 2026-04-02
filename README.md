@@ -5,7 +5,7 @@ Tree UI + API editing for Symfony UX Twig Components.
 This bundle provides:
 
 - `apiTreeBrowser` / `api_tree` Twig components (jsTree-backed)
-- `@survos/tree/api_tree` Stimulus controller
+- `@survos/tree-bundle/api_tree` Stimulus controller
 - `{% tree %}` Twig tag for recursive rendering
 
 ## Install

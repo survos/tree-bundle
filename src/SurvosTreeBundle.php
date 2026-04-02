@@ -78,8 +78,8 @@ class SurvosTreeBundle extends AssetMapperBundle
         // since the configuration is short, we can add it here
         $definition->rootNode()
             ->children()
-            ->scalarNode('tree_stimulus_controller')->defaultValue('@survos/tree/tree')->end()
-            ->scalarNode('api_tree_stimulus_controller')->defaultValue('@survos/tree/api_tree')->end()
+            ->scalarNode('tree_stimulus_controller')->defaultValue('@survos/tree-bundle/tree')->end()
+            ->scalarNode('api_tree_stimulus_controller')->defaultValue('@survos/tree-bundle/api_tree')->end()
             ->scalarNode('stimulus_controller')
                 ->defaultNull()
                 ->setDeprecated('survos/tree-bundle', '4.2', 'The "%node%" option is deprecated, use "api_tree_stimulus_controller" and/or "tree_stimulus_controller" instead.')
