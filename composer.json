@@ -25,10 +25,10 @@
         "symfony/dependency-injection": "^7.3||^8.0",
         "symfony/http-kernel": "^7.3||^8.0",
         "symfony/options-resolver": "^7.3||^8.0",
-        "symfony/ux-twig-component": "^2.8",
+        "symfony/ux-twig-component": "^2.0|^3.0",
         "tacman/twig-tree-tag": "^3.0.1",
         "twig/twig": "^3.4",
-        "symfony/stimulus-bundle": "^2.21"
+        "symfony/stimulus-bundle": "^2.0|^3.0"
     },
     "require-dev": {
         "api-platform/core": "^3.2||^4.0",
