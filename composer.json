@@ -19,7 +19,6 @@
         "doctrine/orm": "^3.4",
         "doctrine/persistence": "^4.1",
         "stof/doctrine-extensions-bundle": "^1.14",
-        "survos/core-bundle": "^2.0",
         "survos/js-twig-bundle": "^2.0",
         "symfony/config": "^7.3||^8.0",
         "symfony/dependency-injection": "^7.3||^8.0",
@@ -28,7 +27,8 @@
         "symfony/ux-twig-component": "^2.0|^3.0",
         "tacman/twig-tree-tag": "^3.0.1",
         "twig/twig": "^3.4",
-        "symfony/stimulus-bundle": "^2.0|^3.0"
+        "symfony/stimulus-bundle": "^2.0|^3.0",
+        "survos/kit-bundle": "^2.0"
     },
     "require-dev": {
         "api-platform/core": "^3.2||^4.0",

@@ -4,7 +4,7 @@ namespace Survos\Tree\Twig;
 
 use ApiPlatform\Metadata\IriConverterInterface;
 use ApiPlatform\Metadata\GetCollection;
-use Survos\CoreBundle\Entity\RouteParametersInterface;
+use Survos\FieldBundle\Entity\RouteParametersInterface;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\GetSetMethodNormalizer;

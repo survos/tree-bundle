@@ -2,7 +2,7 @@
 
 namespace Survos\Tree;
 
-use Survos\CoreBundle\Bundle\AssetMapperBundle;
+use Survos\Kit\AbstractUxBundle;
 use Survos\Tree\Components\ApiTreeBrowserComponent;
 use Survos\Tree\Components\ApiTreeComponent;
 use Survos\Tree\Components\TreeComponent;
@@ -15,7 +15,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Twig\Environment;
 use JordanLev\TwigTreeTag\Twig\Extension\TreeExtension;
 
-class SurvosTreeBundle extends AssetMapperBundle
+class SurvosTreeBundle extends AbstractUxBundle
 {
     public const ASSET_PACKAGE = 'tree';
 
