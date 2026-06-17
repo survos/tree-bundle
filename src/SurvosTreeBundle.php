@@ -15,6 +15,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Twig\Environment;
 use JordanLev\TwigTreeTag\Twig\Extension\TreeExtension;
 
+// Symfony\Component\HttpKernel\Bundle\Bundle <-- Flex auto-registration marker (see Survos\Kit\AbstractSurvosBundle)
 class SurvosTreeBundle extends AbstractUxBundle
 {
     public const ASSET_PACKAGE = 'tree';
