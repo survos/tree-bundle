@@ -119,6 +119,27 @@ trait TreeTrait
         return $this->level;
     }
 
+    /**
+     * Aliases matching Gedmo's DB column names (lft/rgt/lvl) rather than the
+     * private $left/$right/$level property names NestedSetEntity uses to
+     * avoid LEFT/RIGHT being SQL reserved words. Templates and API consumers
+     * expect these column-name-shaped accessors.
+     */
+    public function getLft(): int
+    {
+        return $this->left;
+    }
+
+    public function getRgt(): int
+    {
+        return $this->right;
+    }
+
+    public function getLvl(): int
+    {
+        return $this->level;
+    }
+
     public function getSubtreeImageCount(): int
     {
         return $this->subtreeImageCount;
