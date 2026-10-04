@@ -699,17 +699,19 @@ export default class extends Controller {
     bindTreeEvents() {
         this.unbindTreeEvents();
 
+        // The ESM runtime emits both dotted and colon aliases for each event.
+        // Subscribe only once so one user action produces one API mutation.
         const listeners = [
-            [['changed.jstree', 'jstree:changed'], this.onChanged],
-            [['select_node.jstree', 'jstree:select_node'], this.onSelectNode],
+            [['changed.jstree'], this.onChanged],
+            [['select_node.jstree'], this.onSelectNode],
             [['search.jstree'], this.onSearch],
         ];
 
         if (this.editableValue) {
-            listeners.push([['create_node.jstree', 'jstree:create_node'], this.onCreateNode]);
-            listeners.push([['rename_node.jstree', 'jstree:rename_node'], this.onRenameNode]);
-            listeners.push([['move_node.jstree', 'jstree:move_node'], this.onMoveNode]);
-            listeners.push([['delete_node.jstree', 'jstree:delete_node'], this.onDeleteNode]);
+            listeners.push([['create_node.jstree'], this.onCreateNode]);
+            listeners.push([['rename_node.jstree'], this.onRenameNode]);
+            listeners.push([['move_node.jstree'], this.onMoveNode]);
+            listeners.push([['delete_node.jstree'], this.onDeleteNode]);
         }
 
         for (const [eventNames, handler] of listeners) {
@@ -900,7 +902,11 @@ export default class extends Controller {
             return;
         }
 
-        this.pendingCreates.add(node.id);
+        const draftId = String(node.id);
+        if (this.pendingCreates.has(draftId)) {
+            return;
+        }
+        this.pendingCreates.add(draftId);
 
         try {
             const parentId = this.pendingParentByNodeId.get(String(node.id)) || detail.parent || node.parent || '#';
@@ -946,10 +952,12 @@ export default class extends Controller {
 
             this.notify('api_tree: node created');
         } finally {
-            this.pendingCreates.delete(node.id);
-            this.pendingParentByNodeId.delete(String(node.id));
-            this.pendingDraftNameByNodeId.delete(String(node.id));
-            this.pendingTypeByNodeId.delete(String(node.id));
+            this.pendingCreates.delete(draftId);
+            for (const id of new Set([draftId, String(node.id)])) {
+                this.pendingParentByNodeId.delete(id);
+                this.pendingDraftNameByNodeId.delete(id);
+                this.pendingTypeByNodeId.delete(id);
+            }
         }
     }
 
