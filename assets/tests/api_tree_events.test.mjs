@@ -40,6 +40,9 @@ test('runtime aliases cause one write per mutation, including after rebinding', 
         const detail = { node, parent: '1', text: 'Shelf', old: 'New' };
         emit(c.ajaxTarget, `${event}.jstree`, detail);
         emit(c.ajaxTarget, `jstree:${event}`, detail);
+        if (event === 'create_node') {
+            assert.equal(writes.length, 0, 'adding a local draft does not POST before name confirmation');
+        }
     }
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(writes, ['POST']);
