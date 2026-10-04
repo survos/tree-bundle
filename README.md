@@ -21,7 +21,7 @@ composer require survos/tree-bundle
 - `@tacman1123/twig-browser`
 - `@tacman1123/twig-browser/adapters/symfony`
 - `@tacman1123/twig-browser/src/compat/compileTwigBlocks.js`
-- `@survos/js-twig/generated/fos_routes.js` (for `path()` in client-side twig)
+- `@survos/js-twig/routing` (provided automatically by js-twig-bundle; no importmap entry)
 
 If these are missing or incompatible, the controller now fails fast with a clear error instead of silently falling back.
 
@@ -119,8 +119,8 @@ Legacy `stimulus_controller` is deprecated.
 ## Troubleshooting
 
 - Error: `Twig function path is not configured`
-  - Ensure `@survos/js-twig/generated/fos_routes.js` is mapped in importmap.
-  - Ensure `var/js_twig_bundle/generated/fos_routes.js` exists (cache warmer).
+  - Routing imports are resolved automatically by js-twig-bundle; FOSJsRoutingBundle is not required.
+  - Ensure `var/js_twig_bundle/generated/routes.json` exists (cache warmer).
   - Ensure `@tacman1123/twig-browser`, `@tacman1123/twig-browser/adapters/symfony`, and `@tacman1123/twig-browser/src/compat/compileTwigBlocks.js` are mapped.
 
 - Detail block cannot see `tenantId`

@@ -15,14 +15,14 @@ async function loadTwigHelpers() {
 
     let pathGenerator = null;
     try {
-        const mod = await import('@survos/js-twig/generated/fos_routes.js');
+        const mod = await import('@survos/js-twig/routing');
         pathGenerator = mod.path || null;
     } catch (error) {
         _twigHelpersError = error;
     }
 
     if (!pathGenerator) {
-        throw new Error('[api_tree] Missing route generator for Twig path(). Add @survos/js-twig/generated/fos_routes.js to importmap and ensure the cache warmer generated var/js_twig_bundle/generated/fos_routes.js.');
+        throw new Error('[api_tree] Missing route generator for Twig path(). Run cache:warmup and check that var/js_twig_bundle/generated/routes.json exists.');
     }
 
     _twigEngine = createEngine();
