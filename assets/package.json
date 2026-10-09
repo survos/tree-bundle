@@ -1,5 +1,5 @@
 {
-  "name": "@survos/tree",
+  "name": "@survos/tree-bundle",
   "description": "integrate php and javascript helpers for JSTree.com",
   "license": "MIT",
   "version": "1.0.3",

@@ -106,8 +106,8 @@ Bundle config now supports separate controllers:
 
 ```yaml
 survos_tree:
-  tree_stimulus_controller: '@survos/tree/tree'
-  api_tree_stimulus_controller: '@survos/tree/api_tree'
+  tree_stimulus_controller: '@survos/tree-bundle/tree'
+  api_tree_stimulus_controller: '@survos/tree-bundle/api_tree'
 ```
 
 Legacy `stimulus_controller` is deprecated.

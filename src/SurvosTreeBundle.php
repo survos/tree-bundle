@@ -18,8 +18,6 @@ use JordanLev\TwigTreeTag\Twig\Extension\TreeExtension;
 // Symfony\Component\HttpKernel\Bundle\Bundle <-- Flex auto-registration marker (see Survos\Kit\AbstractSurvosBundle)
 class SurvosTreeBundle extends AbstractUxBundle
 {
-    public const ASSET_PACKAGE = 'tree';
-
     // $config is the bundle Configuration that you usually process in ExtensionInterface::load() but already merged and processed
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
