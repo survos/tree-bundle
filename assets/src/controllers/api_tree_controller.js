@@ -15,7 +15,7 @@ async function loadTwigHelpers() {
 
     let pathGenerator = null;
     try {
-        const mod = await import('@survos/js-twig/routing');
+        const mod = await import('@survos/js-twig-bundle/routing');
         pathGenerator = mod.path || null;
     } catch (error) {
         _twigHelpersError = error;

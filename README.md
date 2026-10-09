@@ -22,7 +22,7 @@ composer require survos/tree-bundle
 - `@tacman1123/twig-browser/adapters/symfony`
 - `@tacman1123/twig-browser/src/compat/compileTwigBlocks.js`
 
-Routing is provided automatically by js-twig-bundle through `@survos/js-twig/routing`.
+Routing is provided automatically by js-twig-bundle through `@survos/js-twig-bundle/routing`.
 Do not add it to importmap.php. See the [migration guide](../js-twig-bundle/docs/routing-migration.md).
 
 If these are missing or incompatible, the controller now fails fast with a clear error instead of silently falling back.
