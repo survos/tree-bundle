@@ -9,6 +9,7 @@ use Gedmo\Mapping\Annotation as Gedmo;
 use Gedmo\Tree\Traits\NestedSetEntity;
 use Survos\Tree\TreeInterface;
 use Symfony\Component\Serializer\Attribute\Groups;
+use SortDirection;
 
 trait TreeTrait
 {
@@ -43,7 +44,7 @@ trait TreeTrait
     public $parent;
 
     #[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
-    #[ORM\OrderBy(['left' => 'ASC'])]
+    #[ORM\OrderBy(['left' => SortDirection::Ascending])]
     public $children;
 
     #[Gedmo\TreeRoot]
