@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\Tree\Model;
 
 class Column
@@ -11,7 +13,7 @@ class Column
         public ?string $route = null,
         public ?string $prefix = null,
         public ?array $actions = null,
-        public bool $modal = false
+        public bool $modal = false,
     ) {
         if (empty($this->title)) {
             $this->title = ucwords($this->name);

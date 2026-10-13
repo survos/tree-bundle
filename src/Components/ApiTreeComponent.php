@@ -1,10 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\Tree\Components;
 
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\IriConverterInterface;
-use Survos\Tree\Model\Column;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
 use Symfony\UX\TwigComponent\Attribute\PreMount;
@@ -59,12 +60,10 @@ class ApiTreeComponent
         }
 
         $apiUrl = $data['apiUrl'] ?? '';
-        $class  = $data['class']  ?? '';
+        $class = $data['class'] ?? '';
 
         if (!$apiUrl && !$class) {
-            throw new \InvalidArgumentException(
-                'api_tree requires either "apiUrl" or "class" (an API Platform resource class).'
-            );
+            throw new \InvalidArgumentException('api_tree requires either "apiUrl" or "class" (an API Platform resource class).');
         }
 
         if (!$apiUrl) {
@@ -79,9 +78,10 @@ class ApiTreeComponent
         if ($this->caller instanceof TemplateWrapper) {
             return $this->caller->getTemplateName();
         }
-        if (is_string($this->caller) && trim($this->caller) !== '') {
+        if (is_string($this->caller) && '' !== trim($this->caller)) {
             return $this->caller;
         }
+
         return null;
     }
 
@@ -92,7 +92,8 @@ class ApiTreeComponent
     public function getBlocks(): array
     {
         $blocks = $this->extractTwigComponentBlocks();
-        error_log('[api_tree] extracted blocks for ' . ($this->getCallerName() ?? 'unknown') . ': ' . implode(', ', array_keys($blocks)));
+        error_log('[api_tree] extracted blocks for '.($this->getCallerName() ?? 'unknown').': '.implode(', ', array_keys($blocks)));
+
         return $blocks;
     }
 
@@ -116,13 +117,14 @@ class ApiTreeComponent
 
         // ── Step 1: protect Twig tokens from HTML parser ──────────────────────
         $placeholders = [];
-        $counter      = 0;
-        $protected    = preg_replace_callback(
+        $counter = 0;
+        $protected = preg_replace_callback(
             '/(\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\})/s',
             static function (array $m) use (&$placeholders, &$counter): string {
                 $token = $m[1];
-                $key   = '__twig_' . $counter++ . '__';
+                $key = '__twig_'.$counter++.'__';
                 $placeholders[$key] = $token;
+
                 return $key;
             },
             $source
@@ -146,11 +148,11 @@ class ApiTreeComponent
 
         // ── Step 4: parse with DomCrawler and extract <block> elements ────────
         $crawler = new Crawler();
-        $crawler->addHtmlContent('<div>' . $inner . '</div>');
+        $crawler->addHtmlContent('<div>'.$inner.'</div>');
 
         $blocks = [];
         $crawler->filterXPath('//block[@name]')->each(function (Crawler $node) use (&$blocks, $placeholders) {
-            $name    = $node->attr('name');
+            $name = $node->attr('name');
             $content = $node->html();
 
             $content = str_replace(['&lt;', '&gt;', '&amp;', '&quot;'], ['<', '>', '&', '"'], $content);

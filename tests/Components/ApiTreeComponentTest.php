@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\Tree\Tests\Components;
 
 use ApiPlatform\Metadata\IriConverterInterface;
@@ -46,7 +48,7 @@ class ApiTreeComponentTest extends TestCase
 
     public function testReturnsEmptyBlocksWhenCallerIsMissing(): void
     {
-        $loader = new FilesystemLoader(__DIR__ . '/../Fixtures/templates');
+        $loader = new FilesystemLoader(__DIR__.'/../Fixtures/templates');
         $twig = new Environment($loader);
         $iriConverter = $this->createMock(IriConverterInterface::class);
 
@@ -58,7 +60,7 @@ class ApiTreeComponentTest extends TestCase
 
     private function createComponent(string $callerTemplate): ApiTreeComponent
     {
-        $loader = new FilesystemLoader(__DIR__ . '/../Fixtures/templates');
+        $loader = new FilesystemLoader(__DIR__.'/../Fixtures/templates');
         $twig = new Environment($loader);
         $iriConverter = $this->createMock(IriConverterInterface::class);
 

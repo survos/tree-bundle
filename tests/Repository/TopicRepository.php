@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\Tree\Tests\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
@@ -14,16 +16,15 @@ use Survos\Tree\Tests\Entity\Topic;
  */
 class TopicRepository extends NestedTreeRepository
 {
-
     public function __construct(EntityManagerInterface $em)
     {
         parent::__construct($em, $em->getClassMetadata(Topic::class));
     }
 
-//    public function __construct(ManagerRegistry $registry)
-//    {
-//        parent::__construct($registry, Topic::class);
-//    }
+    //    public function __construct(ManagerRegistry $registry)
+    //    {
+    //        parent::__construct($registry, Topic::class);
+    //    }
 
     // /**
     //  * @return Topic[] Returns an array of Topic objects

@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\Tree\Components;
 
 use ApiPlatform\Metadata\IriConverterInterface;
-use Symfony\UX\TwigComponent\Attribute\PreMount;
 use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
+use Symfony\UX\TwigComponent\Attribute\PreMount;
 use Twig\Environment;
 
 #[AsTwigComponent('apiTreeBrowser', template: '@SurvosTree/components/api_tree_browser.html.twig')]
@@ -57,8 +59,8 @@ class ApiTreeBrowserComponent extends ApiTreeComponent
     {
         $classes = [trim($this->browserClass) ?: 'api-tree-browser'];
 
-        if ($this->style !== '') {
-            $classes[] = 'api-tree-browser--' . trim($this->style);
+        if ('' !== $this->style) {
+            $classes[] = 'api-tree-browser--'.trim($this->style);
         }
 
         return implode(' ', array_filter($classes));
@@ -66,14 +68,14 @@ class ApiTreeBrowserComponent extends ApiTreeComponent
 
     public function getResolvedTreePaneClass(): string
     {
-        return trim($this->treePaneClass) !== ''
+        return '' !== trim($this->treePaneClass)
             ? trim($this->treePaneClass)
             : 'api-tree-browser__tree';
     }
 
     public function getResolvedContentPaneClass(): string
     {
-        return trim($this->contentPaneClass) !== ''
+        return '' !== trim($this->contentPaneClass)
             ? trim($this->contentPaneClass)
             : 'api-tree-browser__content';
     }

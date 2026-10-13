@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\Tree\Traits;
 
 use Doctrine\Common\Collections\ArrayCollection;
@@ -9,7 +11,6 @@ use Gedmo\Mapping\Annotation as Gedmo;
 use Gedmo\Tree\Traits\NestedSetEntity;
 use Survos\Tree\TreeInterface;
 use Symfony\Component\Serializer\Attribute\Groups;
-use SortDirection;
 
 trait TreeTrait
 {
@@ -44,7 +45,7 @@ trait TreeTrait
     public $parent;
 
     #[ORM\OneToMany(targetEntity: self::class, mappedBy: 'parent')]
-    #[ORM\OrderBy(['left' => SortDirection::Ascending])]
+    #[ORM\OrderBy(['left' => \SortDirection::Ascending])]
     public $children;
 
     #[Gedmo\TreeRoot]
@@ -149,6 +150,7 @@ trait TreeTrait
     public function setSubtreeImageCount(int $count): static
     {
         $this->subtreeImageCount = $count;
+
         return $this;
     }
 
@@ -162,7 +164,7 @@ trait TreeTrait
      *
      * Each entity must expose a public `imageCount` property (direct image count).
      *
-     * @param TreeInterface[] $nodes  All nodes for a single tenant, ordered by lft ASC.
+     * @param TreeInterface[] $nodes all nodes for a single tenant, ordered by lft ASC
      */
     public static function updateSubtreeCounts(array $nodes): void
     {
@@ -177,11 +179,11 @@ trait TreeTrait
         // lft ≤ node.lft AND rgt ≥ node.rgt.
         // We use the stack of open ancestors maintained as we walk backwards.
         $reversed = array_reverse($nodes);
-        $stack    = []; // open ancestors, outermost first
+        $stack = []; // open ancestors, outermost first
 
         foreach ($reversed as $node) {
             // Pop ancestors that are no longer enclosing this node
-            while ($stack !== [] && $stack[count($stack) - 1]->right < $node->right) {
+            while ([] !== $stack && $stack[count($stack) - 1]->right < $node->right) {
                 array_pop($stack);
             }
 
@@ -211,7 +213,7 @@ trait TreeTrait
         $ancestors = [];
         foreach ($nodes as $node) {
             // Pop ancestors whose subtree window has closed
-            while ($ancestors !== [] && $ancestors[count($ancestors) - 1]->right < $node->left) {
+            while ([] !== $ancestors && $ancestors[count($ancestors) - 1]->right < $node->left) {
                 array_pop($ancestors);
             }
 

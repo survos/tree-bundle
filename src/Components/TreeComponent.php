@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\Tree\Components;
 
 use Doctrine\Bundle\DoctrineBundle\Registry;
-use Survos\Tree\Model\Column;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\UX\TwigComponent\Attribute\AsTwigComponent;
 use Symfony\UX\TwigComponent\Attribute\PreMount;
@@ -43,6 +44,7 @@ class TreeComponent
             // @todo: something clever to limit memory, use yield?
             //            $parameters['data'] =  $this->registry->getRepository($class)->findAll();
         }
+
         //        $resolver->setAllowedValues('type', ['success', 'danger']);
         //        $resolver->setRequired('message');
         //        $resolver->setAllowedTypes('message', 'string');

@@ -11,6 +11,7 @@ final class TreeSnapshotBuilder
 {
     /**
      * @param iterable<TreePathNodeInput> $inputs
+     *
      * @return array<string,ComputedTreeNode>
      */
     public function build(iterable $inputs): array
@@ -21,7 +22,7 @@ final class TreeSnapshotBuilder
 
         foreach ($inputs as $input) {
             $nodes[$input->path] = $input;
-            if ($input->parentPath === null) {
+            if (null === $input->parentPath) {
                 $roots[] = $input->path;
                 continue;
             }
@@ -45,8 +46,8 @@ final class TreeSnapshotBuilder
 
     /**
      * @param array<string,TreePathNodeInput> $nodes
-     * @param array<string,list<string>> $childrenByPath
-     * @param array<string,ComputedTreeNode> $computed
+     * @param array<string,list<string>>      $childrenByPath
+     * @param array<string,ComputedTreeNode>  $computed
      */
     private function walk(
         string $path,

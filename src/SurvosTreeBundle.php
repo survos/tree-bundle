@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Survos\Tree;
 
+use JordanLev\TwigTreeTag\Twig\Extension\TreeExtension;
 use Survos\Kit\AbstractUxBundle;
 use Survos\Tree\Components\ApiTreeBrowserComponent;
 use Survos\Tree\Components\ApiTreeComponent;
@@ -13,7 +16,6 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Twig\Environment;
-use JordanLev\TwigTreeTag\Twig\Extension\TreeExtension;
 
 // Symfony\Component\HttpKernel\Bundle\Bundle <-- Flex auto-registration marker (see Survos\Kit\AbstractSurvosBundle)
 class SurvosTreeBundle extends AbstractUxBundle
@@ -23,7 +25,7 @@ class SurvosTreeBundle extends AbstractUxBundle
     {
         $treeStimulusController = $config['tree_stimulus_controller'];
         $apiTreeStimulusController = $config['api_tree_stimulus_controller'];
-        if (is_string($config['stimulus_controller'] ?? null) && $config['stimulus_controller'] !== '') {
+        if (is_string($config['stimulus_controller'] ?? null) && '' !== $config['stimulus_controller']) {
             $apiTreeStimulusController = $config['stimulus_controller'];
         }
 
@@ -84,9 +86,5 @@ class SurvosTreeBundle extends AbstractUxBundle
                 ->setDeprecated('survos/tree-bundle', '4.2', 'The "%node%" option is deprecated, use "api_tree_stimulus_controller" and/or "tree_stimulus_controller" instead.')
                 ->end()
             ->end();
-
-        ;
     }
-
-
 }
