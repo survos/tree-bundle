@@ -15,14 +15,15 @@ async function loadTwigHelpers() {
 
     let pathGenerator = null;
     try {
-        const mod = await import('@survos/js-twig-bundle/routing');
+        // The app's assets/router.js (symfony/ux-router), mapped in importmap.php as 'router'.
+        const mod = await import('router');
         pathGenerator = mod.path || null;
     } catch (error) {
         _twigHelpersError = error;
     }
 
     if (!pathGenerator) {
-        throw new Error('[api_tree] Missing route generator for Twig path(). Run cache:warmup and check that var/js_twig_bundle/generated/routes.json exists.');
+        throw new Error("[api_tree] Missing route generator for Twig path(). Install symfony/ux-router and map 'router' => ['path' => './assets/router.js'] in importmap.php.", { cause: _twigHelpersError });
     }
 
     _twigEngine = createEngine();

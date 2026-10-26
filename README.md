@@ -22,8 +22,14 @@ composer require survos/tree-bundle
 - `@tacman1123/twig-browser/adapters/symfony`
 - `@tacman1123/twig-browser/src/compat/compileTwigBlocks.js`
 
-Routing is provided automatically by js-twig-bundle through `@survos/js-twig-bundle/routing`.
-Do not add it to importmap.php. See the [migration guide](../js-twig-bundle/docs/routing-migration.md).
+Browser `path()` comes from the app's `assets/router.js` ([symfony/ux-router](https://symfony.com/bundles/ux-router/current/index.html)),
+which the controller imports as `router`. Add it to `importmap.php`:
+
+```php
+'router' => ['path' => './assets/router.js'],
+```
+
+and expose the routes the tree calls (for example `topic_tree_api`) with `options: ['expose' => true]` or `ux_router.routes`.
 
 If these are missing or incompatible, the controller now fails fast with a clear error instead of silently falling back.
 
@@ -121,7 +127,7 @@ Legacy `stimulus_controller` is deprecated.
 ## Troubleshooting
 
 - Error: `Twig function path is not configured`
-  - Routing imports are resolved automatically by js-twig-bundle; FOSJsRoutingBundle is not required.
+  - Routing comes from symfony/ux-router through the app's `router` importmap entry; FOSJsRoutingBundle is not required.
   - Ensure `var/js_twig_bundle/generated/routes.json` exists (cache warmer).
   - Ensure `@tacman1123/twig-browser`, `@tacman1123/twig-browser/adapters/symfony`, and `@tacman1123/twig-browser/src/compat/compileTwigBlocks.js` are mapped.
 
