@@ -128,7 +128,7 @@ Legacy `stimulus_controller` is deprecated.
 
 - Error: `Twig function path is not configured`
   - Routing comes from symfony/ux-router through the app's `router` importmap entry; FOSJsRoutingBundle is not required.
-  - Ensure `var/js_twig_bundle/generated/routes.json` exists (cache warmer).
+  - Ensure `var/routes/index.js` exists (`cache:warmup`) and the `router` importmap entry is present.
   - Ensure `@tacman1123/twig-browser`, `@tacman1123/twig-browser/adapters/symfony`, and `@tacman1123/twig-browser/src/compat/compileTwigBlocks.js` are mapped.
 
 - Detail block cannot see `tenantId`
