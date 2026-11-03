@@ -35,7 +35,7 @@ class TopicRepository extends NestedTreeRepository
         return $this->createQueryBuilder('t')
             ->andWhere('t.exampleField = :val')
             ->setParameter('val', $value)
-            ->orderBy('t.id', 'ASC')
+            ->orderBy('t.id')
             ->setMaxResults(10)
             ->getQuery()
             ->getResult()
